@@ -89,7 +89,7 @@ int bind_local_address() {
 
 	if (listen(listener_fd, SOMAXCONN) == -1) {
 		perror("listen");
-		return 1;
+		return -1;
 	}
 
 	inet_ntop(addr->ai_addr->sa_family,
