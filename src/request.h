@@ -85,3 +85,6 @@ struct http_request {
 
 	void *body_ctx;
 };
+
+struct slice get_slice(const char *ptr, size_t len);
+int slice_str_cmp(const struct slice *sl, const char *str);
