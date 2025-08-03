@@ -7,6 +7,7 @@ static void test_simple_get(void) {
 	struct parse_ctx ctx = parse_ctx_init(&req);
 	feed(&ctx, raw_req, strlen(raw_req));
 	ASSERT_EQ_INT(req.method, HM_GET);
+	parse_ctx_free(&ctx);
 }
 
 int main(void) {

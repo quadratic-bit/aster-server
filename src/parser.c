@@ -25,6 +25,9 @@ struct parse_ctx parse_ctx_init(struct http_request *req) {
 	return ctx;
 }
 
+void parse_ctx_free(struct parse_ctx *ctx) {
+	free(ctx->buf);
+}
 
 /* expect data to be allocated up to (data+n) */
 void append_to_buf(struct parse_ctx *ctx, const char* data, size_t n) {

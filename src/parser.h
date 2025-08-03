@@ -26,5 +26,6 @@ struct parse_ctx {
 };
 
 struct parse_ctx parse_ctx_init(struct http_request *req);
+void parse_ctx_free(struct parse_ctx *ctx);
 
 void feed(struct parse_ctx *ctx, const char *request_bytes, size_t n);
