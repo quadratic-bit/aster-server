@@ -44,7 +44,7 @@ enum http_header_type {
 	HH_USER_AGENT,
 	HH_VARY,
 	HH_VIA,
-	HH_WARNING,
+	HH_WARNING
 };
 
 struct http_header {
