@@ -30,7 +30,7 @@ void parse_ctx_free(struct parse_ctx *ctx) {
 }
 
 /* expect data to be allocated up to (data+n) */
-void append_to_buf(struct parse_ctx *ctx, const char* data, size_t n) {
+static void append_to_buf(struct parse_ctx *ctx, const char* data, size_t n) {
 	while (n + ctx->len > ctx->cap) {
 		size_t new_cap = ctx->cap * 2;
 		ctx->buf = realloc(ctx->buf, new_cap);
@@ -53,7 +53,7 @@ void append_to_buf(struct parse_ctx *ctx, const char* data, size_t n) {
           ; any VCHAR (x21-7E), except delimiters (hex: 22, 28, 29, 2C, 2F, 5B, 5C, 5D) */
 
 /* return 1 if tchar, 0 otherwise */
-int is_tchar(char ch) {
+static int is_tchar(char ch) {
 	unsigned char c = (unsigned char)ch;
 	if (c < 0x21 || c > 0x7E) return 0;
 	if (c == 0x22 || c == 0x28 || c == 0x29 || c == 0x2C || c == 0x2F
@@ -64,7 +64,7 @@ int is_tchar(char ch) {
 }
 
 /* return 1 if finished, 0 if ran out of bytes */
-int parse_req_line_method(struct parse_ctx *ctx) {
+static int parse_req_line_method(struct parse_ctx *ctx) {
 	enum http_method parsed_method;
 	char ch;
 
