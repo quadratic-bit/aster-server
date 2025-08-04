@@ -1,3 +1,6 @@
+#define _POSIX_C_SOURCE 200112L
+#define _XOPEN_SOURCE 600
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -21,38 +24,41 @@
  * PF_ for Protocol Family
  */
 
-// prune dead forked processes
-void zombie_killer(int s) {
-	(void)s; // unused parameter warning
+/* prune dead forked processes */
+static void zombie_killer(int s) {
+	int saved_errno;
 
-	int saved_errno = errno; // errno may be overwritten during waitpid
+	(void)s; /* unused parameter warning */
+
+	saved_errno = errno; /* errno may be overwritten during waitpid */
 
 	while (waitpid(-1, NULL, WNOHANG) > 0);
 
 	errno = saved_errno;
 }
 
-// retrieve socket address (v4 or v6) from a generic sockaddr struct
-// cast to either sockaddr_in* or sockaddr_in6*
-void *get_sockaddr_in(struct sockaddr *sa) {
+/* retrieve socket address (v4 or v6) from a generic sockaddr struct
+   cast to either sockaddr_in* or sockaddr_in6* */
+static void *get_sockaddr_in(struct sockaddr *sa) {
 	if (sa->sa_family == AF_INET) {
 		return &(((struct sockaddr_in *)sa)->sin_addr);
 	}
 	return &(((struct sockaddr_in6 *)sa)->sin6_addr);
 }
 
-// bind the socket to the first available bindable address, returns the fd of
-// the socket or -1 on error
-int bind_local_address() {
+/* bind the socket to the first available bindable address, returns the fd of
+   the socket or -1 on error */
+static int bind_local_address(void) {
 	struct addrinfo addr_hints, *server_info, *addr;
 	int listener_fd = -1;
+	int yes = 1;
 	int retval;
 	char addrstr[INET6_ADDRSTRLEN];
 
 	memset(&addr_hints, 0, sizeof addr_hints);
-	addr_hints.ai_family = AF_INET; // IPv4
-	addr_hints.ai_socktype = SOCK_STREAM; // TCP
-	addr_hints.ai_flags = AI_PASSIVE; // `bind()`able
+	addr_hints.ai_family = AF_INET; /* IPv4 */
+	addr_hints.ai_socktype = SOCK_STREAM; /* TCP */
+	addr_hints.ai_flags = AI_PASSIVE; /* `bind()`able */
 
 	retval = getaddrinfo(NULL, "http", &addr_hints, &server_info);
 	if (retval != 0) {
@@ -68,7 +74,6 @@ int bind_local_address() {
 			perror("socket");
 			continue;
 		}
-		int yes = 1;
 		retval = setsockopt(listener_fd,
 				SOL_SOCKET,
 				SO_REUSEADDR,
@@ -103,10 +108,15 @@ int bind_local_address() {
 	return listener_fd;
 }
 
-void handle_client(int client_fd) {
+static void handle_client(int client_fd) {
 	char buf[MAXDATASIZE];
+	const char *reply =
+		"HTTP/1.1 200 OK\r\n"
+		"Content-Length: 0\r\n"
+		"Connection: close\r\n"
+		"\r\n";
 
-	int num_bytes = recv(client_fd, buf, MAXDATASIZE - 1, 0);
+	ssize_t num_bytes = recv(client_fd, buf, MAXDATASIZE - 1, 0);
 	if (num_bytes == -1) {
 		perror("recv");
 		exit(1);
@@ -114,12 +124,6 @@ void handle_client(int client_fd) {
 
 	buf[num_bytes] = '\0';
 	printf("server: message received, contents below\n%s\n", buf);
-
-	const char *reply =
-		"HTTP/1.1 200 OK\r\n"
-		"Content-Length: 0\r\n"
-		"Connection: close\r\n"
-		"\r\n";
 	send(client_fd, reply, strlen(reply), 0);
 }
 
@@ -129,6 +133,7 @@ int main(void) {
 	struct sigaction sigact;
 	socklen_t sin_size;
 	char addrstr[INET6_ADDRSTRLEN];
+	pid_t fork_pid;
 
 	listener_fd = bind_local_address();
 
@@ -163,24 +168,24 @@ int main(void) {
 				addrstr, sizeof addrstr);
 		printf("server: received connection from %s\n", addrstr);
 
-		pid_t pid = fork();
+		fork_pid = fork();
 
-		if (pid == -1) {
+		if (fork_pid == -1) {
 			perror("fork");
 			close(listener_fd);
 			return 1;
 		}
 
-		if (!pid) { // child
-			// child inherited a copy of parent's file descriptors
-			// sockfd is passive and isn't used by the child
+		if (!fork_pid) { /* child */
+			/* child inherits a copy of parent's file descriptors */
+			/* sockfd is passive and isn't used by the child */
 			close(listener_fd);
 
 			handle_client(client_fd);
 			close(client_fd);
 
 			return 0;
-		} // parent
+		} /* parent */
 		close(client_fd);
 	}
 	return 0;
