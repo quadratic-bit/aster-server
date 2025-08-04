@@ -8,6 +8,7 @@ CFLAGS_DEBUG := -std=c89 -pedantic-errors -Wall -Wextra -Werror \
 		-Wstrict-aliasing=2 -Wcast-qual -Wunreachable-code \
 		-D_FORTIFY_SOURCE=2 \
 		-Wnull-dereference \
+		-fanalyzer \
 		-fsanitize=address,undefined \
 		-O1 \
 		-g \
@@ -15,13 +16,12 @@ CFLAGS_DEBUG := -std=c89 -pedantic-errors -Wall -Wextra -Werror \
 		-fno-common \
 		-fno-builtin \
 		-Werror=implicit-function-declaration
-#		-fanalyzer \
 
 CFLAGS_RELEASE := -std=c89 -pedantic-errors -O2 \
 				  -flto -fstack-protector-strong -fno-common -fno-builtin \
 				  -D_FORTIFY_SOURCE=2 -march=native
 
-.PHONY: all clean test release
+.PHONY: clean test release
 
 bin/server: bin src/main.c
 	$(CC) $(CFLAGS_DEBUG) src/main.c -o bin/server

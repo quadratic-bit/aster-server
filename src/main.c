@@ -85,15 +85,20 @@ static int bind_local_address(void) {
 		retval = bind(listener_fd, addr->ai_addr, addr->ai_addrlen);
 		if (retval == -1) {
 			close(listener_fd);
+			listener_fd = -1;
 			perror("bind");
 			continue;
 		}
 		break;
 	}
 
+	if (listener_fd == -1) {
+		return -1;
+	}
 
 	if (listen(listener_fd, SOMAXCONN) == -1) {
 		perror("listen");
+		close(listener_fd);
 		return -1;
 	}
 
