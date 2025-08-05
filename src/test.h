@@ -5,6 +5,13 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define RUN_TEST(fn)				\
+	do {					\
+		fprintf(stderr, "%s: ", #fn);	\
+		fn();				\
+		fprintf(stderr, "OK\n");	\
+	} while (0)
+
 #define ASSERT_EQ_INT(a, b) do { \
 	if ((a) != (b)) { \
 		fprintf(stderr, \
