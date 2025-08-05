@@ -66,6 +66,7 @@ enum http_method {
 };
 
 enum request_target_form {
+	TF_UNK = 0,
 	TF_ORIGIN,
 	TF_ABSOLUTE,
 	TF_AUTHORITY,

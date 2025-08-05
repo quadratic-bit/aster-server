@@ -26,4 +26,16 @@
 	} \
 } while (0)
 
+#define ASSERT_EQ_MEM(p1, len1, p2, len2) do { \
+	if ((len1) != (len2) || memcmp((p1), (p2), (len1)) != 0) { \
+		fprintf(stderr, \
+			"%s:%d: ASSERT_EQ_MEM failed (len %lu vs %lu)\n", \
+			__FILE__, \
+			__LINE__, \
+			(size_t)(len1), \
+			(size_t)(len2)); \
+		exit(1); \
+	} \
+} while (0)
+
 #endif

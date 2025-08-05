@@ -7,6 +7,8 @@
 enum parse_state {
 	PAR_REQ_LINE_METHOD,
 
+	PAR_REQ_LINE_TARGET,
+
 	PAR_DONE,
 
 	PAR_ERROR
