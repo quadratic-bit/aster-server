@@ -48,11 +48,11 @@ static void append_to_buf(struct parse_ctx *ctx, const char* data, size_t n) {
 /* request-line = method SP request-target SP HTTP-version
    method = token
    token = 1*tchar
-   tchar = "!" / "#" / "$" / "%" / "&" / "'" / "*" x21-2A except x22", x28(, x29)
-          / "+" / "-" / "." / "^" / "_" / "`" / "|" / "~" x2B, x2D, x2E, x5E-60, x7C, x7E
-          / DIGIT (x30-x39) / ALPHA (x41-5A / x61-7A)
-          ; any VCHAR (x21-7E), except delimiters (hex: 22, 28, 29, 2C, 2F, 5B, 5C, 5D) */
+   tchar = "!" / "#" / "$" / "%" / "&" / "'" / "*"
+          / "+" / "-" / "." / "^" / "_" / "`" / "|" / "~"
+          / DIGIT / ALPHA */
 
+/* return 1 if vchar, 0 otherwise */
 static int is_vchar(char ch) {
 	return ch >= '!' && ch <= '~';
 }
@@ -67,8 +67,7 @@ static int is_tchar(char ch) {
 	return 1;
 }
 
-/* return 1 if finished, 0 if need more bytes */
-static int parse_req_line_method(struct parse_ctx *ctx) {
+static enum parse_result parse_req_line_method(struct parse_ctx *ctx) {
 	enum http_method parsed_method;
 	char ch;
 
@@ -76,7 +75,7 @@ static int parse_req_line_method(struct parse_ctx *ctx) {
 	ch = ctx->buf[ctx->pos];
 	while (is_tchar(ch)) {
 		ctx->pos++;
-		if (ctx->pos >= ctx->len) return 0;
+		if (ctx->pos >= ctx->len) return PR_NEED_MORE;
 		ch = ctx->buf[ctx->pos];
 	}
 	if (ch == SYM_SP) {
@@ -117,11 +116,11 @@ static int parse_req_line_method(struct parse_ctx *ctx) {
 		}
 		ctx->req->method = parsed_method;
 		ctx->state = PAR_REQ_LINE_TARGET;
-		return 1;
+		return PR_COMPLETE;
 	}
 	ctx->state = PAR_ERROR;
 	ctx->mark = MARK_NONE;
-	return 1;
+	return PR_COMPLETE;
 }
 
 /* return 1 if ALPHA, 0 otherwise */
@@ -225,8 +224,7 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 	ctx->state = PAR_REQ_LINE_HTTP_NAME;
 }
 
-/* return 1 if finished, 0 if need more bytes */
-static int parse_req_line_target(struct parse_ctx *ctx) {
+static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
 	char ch;
 
 	ch = ctx->buf[ctx->pos];
@@ -235,7 +233,7 @@ static int parse_req_line_target(struct parse_ctx *ctx) {
 		if (ch == SYM_SP) {
 			/* Two SP, reject for now, TODO: handle LWSP */
 			ctx->state = PAR_ERROR;
-			return 1;
+			return PR_COMPLETE;
 		}
 		ctx->mark = ctx->pos;
 	} else if (ch == SYM_SP) {
@@ -260,7 +258,7 @@ static int parse_req_line_target(struct parse_ctx *ctx) {
 			break;
 		case TF_UNK: assert(0);
 		}
-		return 1;
+		return PR_COMPLETE;
 	}
 
 pre_line_target_switch:
@@ -268,18 +266,18 @@ pre_line_target_switch:
 	case TF_ASTERISK: /* More than two characters in asterisk-form */
 		ctx->state = PAR_ERROR;
 		ctx->mark = MARK_NONE;
-		return 1;
+		return PR_COMPLETE;
 
 	case TF_ORIGIN:
 		while (ch == '/' || ch == '?' || is_pchar(ch)) {
 			ctx->pos++;
-			if (ctx->pos >= ctx->len) return 0;
+			if (ctx->pos >= ctx->len) return PR_NEED_MORE;
 			ch = ctx->buf[ctx->pos];
 		}
 		if (ch != SYM_SP) { /* Invalid character for origin-form */
 			ctx->state = PAR_ERROR;
 			ctx->mark = MARK_NONE;
-			return 1;
+			return PR_COMPLETE;
 		}
 		ctx->req->raw_target = get_slice(
 			ctx->buf + ctx->mark,
@@ -288,18 +286,18 @@ pre_line_target_switch:
 		ctx->mark = MARK_NONE;
 		ctx->pos++;
 		parse_origin_form(ctx);
-		return 1;
+		return PR_COMPLETE;
 
 	case TF_UNK:
 		if (ch == '*') { /* asterisk-form or invalid */
 			ctx->req->target_form = TF_ASTERISK;
 			ctx->pos++;
-			if (ctx->pos >= ctx->len) return 0;
+			if (ctx->pos >= ctx->len) return PR_NEED_MORE;
 			ch = ctx->buf[ctx->pos];
 			if (ch != SYM_SP) { /* More symbols after initial '*' */
 				ctx->state = PAR_ERROR;
 				ctx->mark = MARK_NONE;
-				return 1;
+				return PR_COMPLETE;
 			}
 			ctx->req->raw_target = get_slice(
 				ctx->buf + ctx->mark,
@@ -308,12 +306,12 @@ pre_line_target_switch:
 			ctx->mark = MARK_NONE;
 			ctx->pos++;
 			parse_asterisk_form(ctx);
-			return 1;
+			return PR_COMPLETE;
 		}
 		if (ch == '/') { /* origin-form or invalid */
 			ctx->req->target_form = TF_ORIGIN;
 			ctx->pos++;
-			if (ctx->pos >= ctx->len) return 0;
+			if (ctx->pos >= ctx->len) return PR_NEED_MORE;
 			ch = ctx->buf[ctx->pos];
 			goto pre_line_target_switch;
 		}
@@ -322,13 +320,13 @@ pre_line_target_switch:
 
 		while (ch == '/' || ch == '?' || is_pchar(ch)) {
 			ctx->pos++;
-			if (ctx->pos >= ctx->len) return 0;
+			if (ctx->pos >= ctx->len) return PR_NEED_MORE;
 			ch = ctx->buf[ctx->pos];
 		}
 		if (ch != SYM_SP) { /* Invalid character */
 			ctx->state = PAR_ERROR;
 			ctx->mark = MARK_NONE;
-			return 1;
+			return PR_COMPLETE;
 		}
 		ctx->req->raw_target = get_slice(
 			ctx->buf + ctx->mark,
@@ -337,122 +335,130 @@ pre_line_target_switch:
 		ctx->mark = MARK_NONE;
 		ctx->pos++;
 		parse_absolute_form(ctx);
-		return 1;
+		return PR_COMPLETE;
 
 	case TF_AUTHORITY:
 	case TF_ABSOLUTE:
 		break;
 	}
 
-	return 1;
+	return PR_COMPLETE;
 }
 
-/* return 1 if finished, 0 if need more bytes */
-static int parse_req_line_http_name(struct parse_ctx *ctx) {
+static enum parse_result parse_req_line_http_name(struct parse_ctx *ctx) {
 	/* HTTP-version = "HTTP/" DIGIT [ "." DIGIT ] */
 	/*                 ^                          */
-	if (ctx->pos + 4 >= ctx->len) return 0;
+	if (ctx->pos + 4 >= ctx->len) return PR_NEED_MORE;
 
 	if (memcmp(ctx->buf + ctx->pos, "HTTP/", 5)) {
 		ctx->state = PAR_ERROR;
-		return 1;
+		return PR_COMPLETE;
 	}
 	ctx->pos += 5;
 	ctx->state = PAR_REQ_LINE_HTTP_MAJOR;
-	return 1;
+	return PR_COMPLETE;
 }
 
-/* return 1 */
-static int parse_req_line_http_major(struct parse_ctx *ctx) {
+static enum parse_result parse_req_line_http_major(struct parse_ctx *ctx) {
 	/* HTTP-version = "HTTP/" DIGIT [ "." DIGIT ] */
 	/*                          ^                 */
 	char ch = ctx->buf[ctx->pos];
 	if (!is_digit(ch)) {
 		ctx->state = PAR_ERROR;
-		return 1;
+		return PR_COMPLETE;
 	}
 	ctx->req->http_major = to_digit(ch);
 	ctx->pos++;
 	ctx->state = PAR_REQ_LINE_HTTP_PERIOD;
-	return 1;
+	return PR_COMPLETE;
 }
 
-/* return 1 */
-static int parse_req_line_http_period(struct parse_ctx *ctx) {
+static enum parse_result parse_req_line_http_period(struct parse_ctx *ctx) {
 	/* HTTP-version = "HTTP/" DIGIT [ "." DIGIT ] */
 	/*                                 ^          */
 	char ch = ctx->buf[ctx->pos];
 	if (ch == SYM_CR) {
 		ctx->req->http_minor = 0;
 		ctx->state = PAR_REQ_LINE_CRLF;
-		return 1;
+		return PR_COMPLETE;
 	}
 	if (ch != '.') {
 		ctx->state = PAR_ERROR;
-		return 1;
+		return PR_COMPLETE;
 	}
 	ctx->pos++;
 	ctx->state = PAR_REQ_LINE_HTTP_MINOR;
-	return 1;
+	return PR_COMPLETE;
 }
 
-/* return 1 */
-static int parse_req_line_http_minor(struct parse_ctx *ctx) {
+static enum parse_result parse_req_line_http_minor(struct parse_ctx *ctx) {
 	/* HTTP-version = "HTTP/" DIGIT "." DIGIT */
 	/*                                    ^   */
 	char ch = ctx->buf[ctx->pos];
 	if (!is_digit(ch)) {
 		ctx->state = PAR_ERROR;
-		return 1;
+		return PR_COMPLETE;
 	}
 	ctx->req->http_minor = to_digit(ch);
 	ctx->pos++;
 	ctx->state = PAR_REQ_LINE_CRLF;
-	return 1;
+	return PR_COMPLETE;
 }
 
-/* return 1 */
-static int parse_req_line_crlf(struct parse_ctx *ctx) {
-	if (ctx->pos + 1 >= ctx->len) return 0;
+static enum parse_result parse_req_line_crlf(struct parse_ctx *ctx) {
+	if (ctx->pos + 1 >= ctx->len) return PR_NEED_MORE;
 
 	if (memcmp(ctx->buf + ctx->pos, TOK_CRLF, 2)) {
 		ctx->state = PAR_ERROR;
-		return 1;
+		return PR_COMPLETE;
 	}
 	ctx->pos += 2;
 	ctx->state = PAR_DONE;
-	return 1;
+	return PR_COMPLETE;
 }
 
 /* expect request_bytes to be allocated up to (request_bytes+n) */
-void feed(struct parse_ctx *ctx, const char *request_bytes, size_t n) {
-	append_to_buf(ctx, request_bytes, n);
-	while (ctx->pos < ctx->len && ctx->state != PAR_DONE && ctx->state != PAR_ERROR) {
+enum parse_result feed(struct parse_ctx *ctx, const char *req_bytes, size_t n) {
+	enum parse_result res = PR_NEED_MORE;
+
+	append_to_buf(ctx, req_bytes, n);
+
+	while (
+			ctx->pos < ctx->len &&
+			ctx->state != PAR_DONE &&
+			ctx->state != PAR_ERROR
+	      ) {
 		switch (ctx->state) {
 		case PAR_REQ_LINE_METHOD:
-			parse_req_line_method(ctx);
+			res = parse_req_line_method(ctx);
 			break;
 		case PAR_REQ_LINE_TARGET:
-			parse_req_line_target(ctx);
+			res = parse_req_line_target(ctx);
 			break;
 		case PAR_REQ_LINE_HTTP_NAME:
-			parse_req_line_http_name(ctx);
+			res = parse_req_line_http_name(ctx);
 			break;
 		case PAR_REQ_LINE_HTTP_MAJOR:
-			parse_req_line_http_major(ctx);
+			res = parse_req_line_http_major(ctx);
 			break;
 		case PAR_REQ_LINE_HTTP_PERIOD:
-			parse_req_line_http_period(ctx);
+			res = parse_req_line_http_period(ctx);
 			break;
 		case PAR_REQ_LINE_HTTP_MINOR:
-			parse_req_line_http_minor(ctx);
+			res = parse_req_line_http_minor(ctx);
 			break;
 		case PAR_REQ_LINE_CRLF:
-			parse_req_line_crlf(ctx);
+			res = parse_req_line_crlf(ctx);
 			break;
 		case PAR_ERROR:
 		case PAR_DONE:
 			break;
 		}
+
+		if (res == PR_NEED_MORE) {
+			return PR_NEED_MORE;
+		}
 	}
+
+	return res;
 }

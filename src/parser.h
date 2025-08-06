@@ -21,6 +21,11 @@ enum parse_state {
 	PAR_ERROR
 };
 
+enum parse_result {
+	PR_COMPLETE,
+	PR_NEED_MORE
+};
+
 struct parse_ctx {
 	enum parse_state state;
 
@@ -37,4 +42,4 @@ struct parse_ctx {
 struct parse_ctx parse_ctx_init(struct http_request *req);
 void parse_ctx_free(struct parse_ctx *ctx);
 
-void feed(struct parse_ctx *ctx, const char *request_bytes, size_t n);
+enum parse_result feed(struct parse_ctx *ctx, const char *req_bytes, size_t n);

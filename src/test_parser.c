@@ -6,8 +6,9 @@ static void test_get_origin(void) {
 	struct http_request req = {0};
 	struct parse_ctx ctx = parse_ctx_init(&req);
 
-	feed(&ctx, raw_req, strlen(raw_req));
+	enum parse_result res = feed(&ctx, raw_req, strlen(raw_req));
 
+	ASSERT_EQ_INT(res, PR_COMPLETE);
 	ASSERT_EQ_INT(ctx.state, PAR_DONE);
 	ASSERT_EQ_INT(req.method, HM_GET);
 	ASSERT_EQ_INT(req.target_form, TF_ORIGIN);
@@ -23,8 +24,9 @@ static void test_get_asterisk(void) {
 	struct http_request req = {0};
 	struct parse_ctx ctx = parse_ctx_init(&req);
 
-	feed(&ctx, raw_req, strlen(raw_req));
+	enum parse_result res = feed(&ctx, raw_req, strlen(raw_req));
 
+	ASSERT_EQ_INT(res, PR_COMPLETE);
 	ASSERT_EQ_INT(ctx.state, PAR_DONE);
 	ASSERT_EQ_INT(req.method, HM_OPTIONS);
 	ASSERT_EQ_INT(req.target_form, TF_ASTERISK);
