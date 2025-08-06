@@ -138,6 +138,12 @@ static int is_digit(char ch) {
 	return c >= 0x30 && c <= 0x39;
 }
 
+/* parse DIGIT into uint8_t */
+static uint8_t to_digit(char ch) {
+	assert(is_digit(ch));
+	return (uint8_t)((unsigned char)ch - 0x30);
+}
+
 /* return 1 if pchar, 0 otherwise */
 static int is_pchar(char ch) {
 	unsigned char c = (unsigned char)ch;
@@ -156,7 +162,7 @@ static void parse_asterisk_form(struct parse_ctx *ctx) {
 	assert(ctx->req->raw_target.len == 1);
 	assert(ctx->req->raw_target.ptr[0] == '*');
 
-	ctx->state = PAR_DONE;
+	ctx->state = PAR_REQ_LINE_HTTP_NAME;
 }
 
 static void parse_origin_form(struct parse_ctx *ctx) {
@@ -196,11 +202,11 @@ static void parse_origin_form(struct parse_ctx *ctx) {
 			pos++;
 			continue;
 		}
-		ctx->state = PAR_ERROR;
+		ctx->state = PAR_REQ_LINE_HTTP_NAME;
 		return;
 	}
 
-	ctx->state = PAR_DONE;
+	ctx->state = PAR_REQ_LINE_HTTP_NAME;
 }
 
 static void parse_authority_form(struct parse_ctx *ctx) {
@@ -210,7 +216,7 @@ static void parse_authority_form(struct parse_ctx *ctx) {
 	/* TODO: implement absolute-form and authority-form */
 	assert(0);
 
-	ctx->state = PAR_DONE;
+	ctx->state = PAR_REQ_LINE_HTTP_NAME;
 }
 
 static void parse_absolute_form(struct parse_ctx *ctx) {
@@ -221,7 +227,7 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 	/* TODO: implement absolute-form and authority-form */
 	assert(0);
 
-	ctx->state = PAR_DONE;
+	ctx->state = PAR_REQ_LINE_HTTP_NAME;
 }
 
 /* return 1 if finished, 0 if need more bytes */
@@ -346,6 +352,83 @@ pre_line_target_switch:
 	return 1;
 }
 
+/* return 1 if finished, 0 if need more bytes */
+static int parse_req_line_http_name(struct parse_ctx *ctx) {
+	/* HTTP-version = "HTTP/" DIGIT [ "." DIGIT ] */
+	/*                 ^                          */
+	if (ctx->pos + 4 >= ctx->len) return 0;
+
+	if (memcmp(ctx->buf + ctx->pos, "HTTP/", 5)) {
+		ctx->state = PAR_ERROR;
+		return 1;
+	}
+	ctx->pos += 5;
+	ctx->state = PAR_REQ_LINE_HTTP_MAJOR;
+	return 1;
+}
+
+/* return 1 */
+static int parse_req_line_http_major(struct parse_ctx *ctx) {
+	/* HTTP-version = "HTTP/" DIGIT [ "." DIGIT ] */
+	/*                          ^                 */
+	char ch = ctx->buf[ctx->pos];
+	if (!is_digit(ch)) {
+		ctx->state = PAR_ERROR;
+		return 1;
+	}
+	ctx->req->http_major = to_digit(ch);
+	ctx->pos++;
+	ctx->state = PAR_REQ_LINE_HTTP_PERIOD;
+	return 1;
+}
+
+/* return 1 */
+static int parse_req_line_http_period(struct parse_ctx *ctx) {
+	/* HTTP-version = "HTTP/" DIGIT [ "." DIGIT ] */
+	/*                                 ^          */
+	char ch = ctx->buf[ctx->pos];
+	if (ch == SYM_CR) {
+		ctx->req->http_minor = 0;
+		ctx->state = PAR_REQ_LINE_CRLF;
+		return 1;
+	}
+	if (ch != '.') {
+		ctx->state = PAR_ERROR;
+		return 1;
+	}
+	ctx->pos++;
+	ctx->state = PAR_REQ_LINE_HTTP_MINOR;
+	return 1;
+}
+
+/* return 1 */
+static int parse_req_line_http_minor(struct parse_ctx *ctx) {
+	/* HTTP-version = "HTTP/" DIGIT "." DIGIT */
+	/*                                    ^   */
+	char ch = ctx->buf[ctx->pos];
+	if (!is_digit(ch)) {
+		ctx->state = PAR_ERROR;
+		return 1;
+	}
+	ctx->req->http_minor = to_digit(ch);
+	ctx->pos++;
+	ctx->state = PAR_REQ_LINE_CRLF;
+	return 1;
+}
+
+/* return 1 */
+static int parse_req_line_crlf(struct parse_ctx *ctx) {
+	if (ctx->pos + 1 >= ctx->len) return 0;
+
+	if (memcmp(ctx->buf + ctx->pos, TOK_CRLF, 2)) {
+		ctx->state = PAR_ERROR;
+		return 1;
+	}
+	ctx->pos += 2;
+	ctx->state = PAR_DONE;
+	return 1;
+}
+
 /* expect request_bytes to be allocated up to (request_bytes+n) */
 void feed(struct parse_ctx *ctx, const char *request_bytes, size_t n) {
 	append_to_buf(ctx, request_bytes, n);
@@ -356,6 +439,21 @@ void feed(struct parse_ctx *ctx, const char *request_bytes, size_t n) {
 			break;
 		case PAR_REQ_LINE_TARGET:
 			parse_req_line_target(ctx);
+			break;
+		case PAR_REQ_LINE_HTTP_NAME:
+			parse_req_line_http_name(ctx);
+			break;
+		case PAR_REQ_LINE_HTTP_MAJOR:
+			parse_req_line_http_major(ctx);
+			break;
+		case PAR_REQ_LINE_HTTP_PERIOD:
+			parse_req_line_http_period(ctx);
+			break;
+		case PAR_REQ_LINE_HTTP_MINOR:
+			parse_req_line_http_minor(ctx);
+			break;
+		case PAR_REQ_LINE_CRLF:
+			parse_req_line_crlf(ctx);
 			break;
 		case PAR_ERROR:
 		case PAR_DONE:

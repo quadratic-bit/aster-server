@@ -8,9 +8,12 @@ static void test_get_origin(void) {
 
 	feed(&ctx, raw_req, strlen(raw_req));
 
+	ASSERT_EQ_INT(ctx.state, PAR_DONE);
 	ASSERT_EQ_INT(req.method, HM_GET);
 	ASSERT_EQ_INT(req.target_form, TF_ORIGIN);
 	ASSERT_EQ_MEM(req.raw_target.ptr, req.raw_target.len, "/path?q=1", 9);
+	ASSERT_EQ_INT(req.http_major, 1);
+	ASSERT_EQ_INT(req.http_minor, 1);
 
 	parse_ctx_free(&ctx);
 }
@@ -21,9 +24,13 @@ static void test_get_asterisk(void) {
 	struct parse_ctx ctx = parse_ctx_init(&req);
 
 	feed(&ctx, raw_req, strlen(raw_req));
+
+	ASSERT_EQ_INT(ctx.state, PAR_DONE);
 	ASSERT_EQ_INT(req.method, HM_OPTIONS);
 	ASSERT_EQ_INT(req.target_form, TF_ASTERISK);
 	ASSERT_EQ_MEM(req.raw_target.ptr, req.raw_target.len, "*", 1);
+	ASSERT_EQ_INT(req.http_major, 1);
+	ASSERT_EQ_INT(req.http_minor, 1);
 
 	parse_ctx_free(&ctx);
 }
