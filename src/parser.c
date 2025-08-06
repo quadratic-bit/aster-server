@@ -57,14 +57,24 @@ static int is_vchar(char ch) {
 	return ch >= '!' && ch <= '~';
 }
 
+/* return 1 if ALPHA, 0 otherwise */
+static int is_alpha(char ch) {
+	return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
+}
+
+/* return 1 if DIGIT, 0 otherwise */
+static int is_digit(char ch) {
+	return ch >= '0' && ch <= '9';
+}
+
 /* return 1 if tchar, 0 otherwise */
 static int is_tchar(char ch) {
+	if (is_alpha(ch) || is_digit(ch)) return 1;
 	if (!is_vchar(ch)) return 0;
-	if (ch == '\"' || ch == '(' || ch == ')' || ch == ',' || ch == '/'
-			|| ch == '[' || ch == '\\' || ch == ']') {
-		return 0;
-	}
-	return 1;
+	return ch == '!' || ch == '#' || ch == '$' || ch == '%' ||
+		ch == '&' || ch == '\'' || ch == '*' || ch == '+' ||
+		ch == '-' || ch == '.' || ch == '^' || ch == '_' || ch == '`' ||
+		ch == '|' || ch == '~';
 }
 
 static enum parse_result parse_req_line_method(struct parse_ctx *ctx) {
@@ -123,15 +133,6 @@ static enum parse_result parse_req_line_method(struct parse_ctx *ctx) {
 	return PR_COMPLETE;
 }
 
-/* return 1 if ALPHA, 0 otherwise */
-static int is_alpha(char ch) {
-	return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
-}
-
-/* return 1 if DIGIT, 0 otherwise */
-static int is_digit(char ch) {
-	return ch >= '0' && ch <= '9';
-}
 
 /* parse DIGIT into uint8_t */
 static uint8_t to_digit(char ch) {
