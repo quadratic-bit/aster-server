@@ -54,16 +54,14 @@ static void append_to_buf(struct parse_ctx *ctx, const char* data, size_t n) {
           ; any VCHAR (x21-7E), except delimiters (hex: 22, 28, 29, 2C, 2F, 5B, 5C, 5D) */
 
 static int is_vchar(char ch) {
-	unsigned char c = (unsigned char)ch;
-	return c >= 0x21 && c <= 0x7E;
+	return ch >= '!' && ch <= '~';
 }
 
 /* return 1 if tchar, 0 otherwise */
 static int is_tchar(char ch) {
-	unsigned char c = (unsigned char)ch;
 	if (!is_vchar(ch)) return 0;
-	if (c == 0x22 || c == 0x28 || c == 0x29 || c == 0x2C || c == 0x2F
-			|| c == 0x5B || c == 0x5C || c == 0x5D) {
+	if (ch == '\"' || ch == '(' || ch == ')' || ch == ',' || ch == '/'
+			|| ch == '[' || ch == '\\' || ch == ']') {
 		return 0;
 	}
 	return 1;
@@ -128,14 +126,12 @@ static int parse_req_line_method(struct parse_ctx *ctx) {
 
 /* return 1 if ALPHA, 0 otherwise */
 static int is_alpha(char ch) {
-	unsigned char c = (unsigned char)ch;
-	return (c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A);
+	return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
 }
 
 /* return 1 if DIGIT, 0 otherwise */
 static int is_digit(char ch) {
-	unsigned char c = (unsigned char)ch;
-	return c >= 0x30 && c <= 0x39;
+	return ch >= '0' && ch <= '9';
 }
 
 /* parse DIGIT into uint8_t */
@@ -146,11 +142,10 @@ static uint8_t to_digit(char ch) {
 
 /* return 1 if pchar, 0 otherwise */
 static int is_pchar(char ch) {
-	unsigned char c = (unsigned char)ch;
 	if (is_alpha(ch) || is_digit(ch)) {
 		return 1;
 	}
-	if (c >= 0x24 && c <= 0x2E) {
+	if (ch >= '$' && ch <= '.') {
 		return 1;
 	}
 	return ch == '_' || ch == '~' || ch == ':' || ch == '@' || ch == '!' ||
