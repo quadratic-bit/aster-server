@@ -2,6 +2,7 @@
 #include <stdint.h>
 
 #define SYM_SP ' '
+#define SYM_HTAB '\t'
 #define SYM_CR '\r'
 #define SYM_LF '\n'
 #define TOK_CRLF "\r\n"
@@ -15,6 +16,11 @@ enum parse_state {
 	PAR_REQ_LINE_HTTP_PERIOD,
 	PAR_REQ_LINE_HTTP_MINOR,
 	PAR_REQ_LINE_CRLF,
+
+	PAR_FIELD_LINE_NAME,
+	PAR_FIELD_LINE_PRE_OWS,
+	PAR_FIELD_LINE_VALUE,
+	PAR_FIELD_LINE_POST_OWS,
 
 	PAR_DONE,
 

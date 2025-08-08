@@ -77,6 +77,12 @@ static int is_tchar(char ch) {
 		ch == '|' || ch == '~';
 }
 
+/* return 1 if obs-text, 0 otherwise */
+static int is_obs_text(char ch) {
+	unsigned char uch = (unsigned char)ch;
+	return uch >= 0x80;
+}
+
 static enum parse_result parse_req_line_method(struct parse_ctx *ctx) {
 	enum http_method parsed_method;
 	char ch;
@@ -414,7 +420,227 @@ static enum parse_result parse_req_line_crlf(struct parse_ctx *ctx) {
 		return PR_COMPLETE;
 	}
 	ctx->pos += 2;
-	ctx->state = PAR_DONE;
+	ctx->state = PAR_FIELD_LINE_NAME;
+	return PR_COMPLETE;
+}
+
+static enum http_header_type parse_header_type(struct slice *name) {
+	enum http_header_type parsed_type = HH_UNK;
+	switch (name->len) {
+		case 2:
+			if (!slice_str_cmp(name, "TE"))
+				parsed_type = HH_TE;
+			break;
+		case 3:
+			if (!slice_str_cmp(name, "Via"))
+				parsed_type = HH_VIA;
+			break;
+		case 4:
+			if (!slice_str_cmp(name, "Date"))
+				parsed_type = HH_DATE;
+			else if (!slice_str_cmp(name, "Host"))
+				parsed_type = HH_HOST;
+			else if (!slice_str_cmp(name, "From"))
+				parsed_type = HH_FROM;
+			else if (!slice_str_cmp(name, "Vary"))
+				parsed_type = HH_VARY;
+			break;
+		case 5:
+			if (!slice_str_cmp(name, "Range"))
+				parsed_type = HH_RANGE;
+			break;
+		case 6:
+			if (!slice_str_cmp(name, "Accept"))
+				parsed_type = HH_ACCEPT;
+			else if (!slice_str_cmp(name, "Expect"))
+				parsed_type = HH_EXPECT;
+			else if (!slice_str_cmp(name, "Pragma"))
+				parsed_type = HH_PRAGMA;
+			break;
+		case 7:
+			if (!slice_str_cmp(name, "Expires"))
+				parsed_type = HH_EXPIRES;
+			else if (!slice_str_cmp(name, "Referer"))
+				parsed_type = HH_REFERER;
+			else if (!slice_str_cmp(name, "Trailer"))
+				parsed_type = HH_TRAILER;
+			else if (!slice_str_cmp(name, "Upgrade"))
+				parsed_type = HH_UPGRADE;
+			else if (!slice_str_cmp(name, "Warning"))
+				parsed_type = HH_WARNING;
+			break;
+		case 8:
+			if (!slice_str_cmp(name, "If-Match"))
+				parsed_type = HH_IF_MATCH;
+			else if (!slice_str_cmp(name, "If-Range"))
+				parsed_type = HH_IF_RANGE;
+			break;
+		case 10:
+			if (!slice_str_cmp(name, "Connection"))
+				parsed_type = HH_CONNECTION;
+			else if (!slice_str_cmp(name, "User-Agent"))
+				parsed_type = HH_USER_AGENT;
+			break;
+		case 11:
+			if (!slice_str_cmp(name, "Content-MD5"))
+				parsed_type = HH_CONTENT_MD5;
+			break;
+		case 12:
+			if (!slice_str_cmp(name, "Content-Type"))
+				parsed_type = HH_CONTENT_TYPE;
+			else if (!slice_str_cmp(name, "Max-Forwards"))
+				parsed_type = HH_MAX_FORWARDS;
+			break;
+		case 13:
+			if (!slice_str_cmp(name, "Authorization"))
+				parsed_type = HH_AUTHORIZATION;
+			else if (!slice_str_cmp(name, "Cache-Control"))
+				parsed_type = HH_CACHE_CONTROL;
+			else if (!slice_str_cmp(name, "Content-Range"))
+				parsed_type = HH_CONTENT_RANGE;
+			else if (!slice_str_cmp(name, "If-None-Match"))
+				parsed_type = HH_IF_NONE_MATCH;
+			break;
+		case 14:
+			if (!slice_str_cmp(name, "Accept-Charset"))
+				parsed_type = HH_ACCEPT_CHARSET;
+			else if (!slice_str_cmp(name, "Content-Length"))
+				parsed_type = HH_CONTENT_LENGTH;
+			break;
+		case 15:
+			if (!slice_str_cmp(name, "Accept-Encoding"))
+				parsed_type = HH_ACCEPT_ENCODING;
+			else if (!slice_str_cmp(name, "Accept-Language"))
+				parsed_type = HH_ACCEPT_LANGUAGE;
+			break;
+		case 16:
+			if (!slice_str_cmp(name, "Content-Encoding"))
+				parsed_type = HH_CONTENT_ENCODING;
+			else if (!slice_str_cmp(name, "Content-Language"))
+				parsed_type = HH_CONTENT_LANGUAGE;
+			else if (!slice_str_cmp(name, "Content-Location"))
+				parsed_type = HH_CONTENT_LOCATION;
+			break;
+		case 17:
+			if (!slice_str_cmp(name, "If-Modified-Since"))
+				parsed_type = HH_IF_MODIFIED_SINCE;
+			else if (!slice_str_cmp(name, "Transfer-Encoding"))
+				parsed_type = HH_TRANSFER_ENCODING;
+			break;
+		case 19:
+			if (!slice_str_cmp(name, "If-Unmodified-Since"))
+				parsed_type = HH_IF_UNMODIFIED_SINCE;
+			else if (!slice_str_cmp(name, "Proxy-Authorization"))
+				parsed_type = HH_PROXY_AUTHORIZATION;
+			break;
+
+	}
+	return parsed_type;
+}
+
+static enum parse_result parse_field_line_name(struct parse_ctx *ctx) {
+	char ch = ctx->buf[ctx->pos];
+	struct slice field_name;
+
+	if (ch == SYM_CR) {
+		if (ctx->pos + 1 >= ctx->len) return PR_NEED_MORE;
+		if (ctx->buf[ctx->pos + 1] == SYM_LF) {
+			ctx->pos += 2;
+			ctx->state = PAR_DONE;
+			return PR_COMPLETE;
+		}
+		ctx->state = PAR_ERROR;
+		return PR_COMPLETE;
+	}
+
+	if (ctx->mark == MARK_NONE) {
+		ctx->mark = ctx->pos;
+	}
+
+	while (is_tchar(ch)) {
+		ctx->pos++;
+		if (ctx->pos >= ctx->len) return PR_NEED_MORE;
+		ch = ctx->buf[ctx->pos];
+	}
+
+	if (ch != ':') {
+		ctx->state = PAR_ERROR;
+		return PR_COMPLETE;
+	}
+
+	field_name = get_slice(
+		ctx->buf + ctx->mark,
+		ctx->pos - ctx->mark
+	);
+	ctx->pos++;
+	ctx->mark = MARK_NONE;
+	append_empty_header(ctx->req, field_name);
+	ctx->req->headers[ctx->req->num_headers - 1].type = parse_header_type(
+		&field_name
+	);
+	ctx->state = PAR_FIELD_LINE_PRE_OWS;
+	return PR_COMPLETE;
+}
+
+static enum parse_result parse_field_line_pre_ows(struct parse_ctx *ctx) {
+	char ch = ctx->buf[ctx->pos];
+
+	while (ch == SYM_SP || ch == SYM_HTAB) {
+		ctx->pos++;
+		if (ctx->pos >= ctx->len) return PR_NEED_MORE;
+		ch = ctx->buf[ctx->pos];
+	}
+
+	ctx->state = PAR_FIELD_LINE_VALUE;
+	return PR_COMPLETE;
+}
+
+static enum parse_result parse_field_line_value(struct parse_ctx *ctx) {
+	char ch = ctx->buf[ctx->pos];
+
+	if (ctx->mark == MARK_NONE) ctx->mark = ctx->pos;
+
+	while (is_vchar(ch) || is_obs_text(ch)) {
+		ctx->pos++;
+		if (ctx->pos >= ctx->len) return PR_NEED_MORE;
+		ch = ctx->buf[ctx->pos];
+	}
+
+	if (ch == SYM_SP || ch == SYM_HTAB || ch == SYM_CR) {
+		ctx->req->headers[ctx->req->num_headers - 1].value = get_slice(
+			ctx->buf + ctx->mark,
+			ctx->pos - ctx->mark
+		);
+		ctx->mark = MARK_NONE;
+		ctx->state = PAR_FIELD_LINE_POST_OWS;
+		return PR_COMPLETE;
+	}
+	ctx->mark = MARK_NONE;
+	ctx->state = PAR_ERROR;
+	return PR_COMPLETE;
+}
+
+static enum parse_result parse_field_line_post_ows(struct parse_ctx *ctx) {
+	char ch = ctx->buf[ctx->pos];
+
+	while (ch == SYM_SP || ch == SYM_HTAB) {
+		ctx->pos++;
+		if (ctx->pos >= ctx->len) return PR_NEED_MORE;
+		ch = ctx->buf[ctx->pos];
+	}
+
+	if (ch == SYM_CR) {
+		if (ctx->pos + 1 >= ctx->len) return PR_NEED_MORE;
+		if (ctx->buf[ctx->pos + 1] != SYM_LF) {
+			ctx->state = PAR_ERROR;
+			return PR_COMPLETE;
+		}
+		ctx->pos += 2;
+		ctx->state = PAR_FIELD_LINE_NAME;
+		return PR_COMPLETE;
+	}
+
+	ctx->state = PAR_ERROR;
 	return PR_COMPLETE;
 }
 
@@ -451,6 +677,19 @@ enum parse_result feed(struct parse_ctx *ctx, const char *req_bytes, size_t n) {
 		case PAR_REQ_LINE_CRLF:
 			res = parse_req_line_crlf(ctx);
 			break;
+		case PAR_FIELD_LINE_NAME:
+			res = parse_field_line_name(ctx);
+			break;
+		case PAR_FIELD_LINE_PRE_OWS:
+			res = parse_field_line_pre_ows(ctx);
+			break;
+		case PAR_FIELD_LINE_VALUE:
+			res = parse_field_line_value(ctx);
+			break;
+		case PAR_FIELD_LINE_POST_OWS:
+			res = parse_field_line_post_ows(ctx);
+			break;
+
 		case PAR_ERROR:
 		case PAR_DONE:
 			break;

@@ -3,7 +3,7 @@
 
 static void test_get_origin(void) {
 	const char *raw_req = "GET /path?q=1 HTTP/1.1\r\nHost: ex.com\r\n\r\n";
-	struct http_request req = {0};
+	struct http_request req = new_request();
 	struct parse_ctx ctx = parse_ctx_init(&req);
 
 	enum parse_result res = feed(&ctx, raw_req, strlen(raw_req));
@@ -16,12 +16,25 @@ static void test_get_origin(void) {
 	ASSERT_EQ_INT(req.http_major, 1);
 	ASSERT_EQ_INT(req.http_minor, 1);
 
+	ASSERT_EQ_INT(req.num_headers, 1);
+	ASSERT_EQ_MEM(
+		req.headers[0].name.ptr,
+		req.headers[0].name.len,
+		"Host", 4
+	);
+	ASSERT_EQ_INT(req.headers[0].type, HH_HOST);
+	ASSERT_EQ_MEM(
+		req.headers[0].value.ptr,
+		req.headers[0].value.len,
+		"ex.com", 6
+	);
+
 	parse_ctx_free(&ctx);
 }
 
 static void test_get_asterisk(void) {
 	const char *raw_req = "OPTIONS * HTTP/1.1\r\nHost: ex.com\r\n\r\n";
-	struct http_request req = {0};
+	struct http_request req = new_request();
 	struct parse_ctx ctx = parse_ctx_init(&req);
 
 	enum parse_result res = feed(&ctx, raw_req, strlen(raw_req));
@@ -33,6 +46,19 @@ static void test_get_asterisk(void) {
 	ASSERT_EQ_MEM(req.raw_target.ptr, req.raw_target.len, "*", 1);
 	ASSERT_EQ_INT(req.http_major, 1);
 	ASSERT_EQ_INT(req.http_minor, 1);
+
+	ASSERT_EQ_INT(req.num_headers, 1);
+	ASSERT_EQ_MEM(
+		req.headers[0].name.ptr,
+		req.headers[0].name.len,
+		"Host", 4
+	);
+	ASSERT_EQ_INT(req.headers[0].type, HH_HOST);
+	ASSERT_EQ_MEM(
+		req.headers[0].value.ptr,
+		req.headers[0].value.len,
+		"ex.com", 6
+	);
 
 	parse_ctx_free(&ctx);
 }
