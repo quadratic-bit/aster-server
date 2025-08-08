@@ -9,7 +9,7 @@ static void test_get_origin(void) {
 	enum parse_result res = feed(&ctx, raw_req, strlen(raw_req));
 
 	ASSERT_EQ_INT(res, PR_COMPLETE);
-	ASSERT_EQ_INT(ctx.state, PAR_DONE);
+	ASSERT_EQ_INT(ctx.state, PS_DONE);
 	ASSERT_EQ_INT(req.method, HM_GET);
 	ASSERT_EQ_INT(req.target_form, TF_ORIGIN);
 	ASSERT_EQ_MEM(req.raw_target.ptr, req.raw_target.len, "/path?q=1", 9);
@@ -40,7 +40,7 @@ static void test_get_asterisk(void) {
 	enum parse_result res = feed(&ctx, raw_req, strlen(raw_req));
 
 	ASSERT_EQ_INT(res, PR_COMPLETE);
-	ASSERT_EQ_INT(ctx.state, PAR_DONE);
+	ASSERT_EQ_INT(ctx.state, PS_DONE);
 	ASSERT_EQ_INT(req.method, HM_OPTIONS);
 	ASSERT_EQ_INT(req.target_form, TF_ASTERISK);
 	ASSERT_EQ_MEM(req.raw_target.ptr, req.raw_target.len, "*", 1);

@@ -8,7 +8,7 @@
 struct parse_ctx parse_ctx_init(struct http_request *req) {
 	struct parse_ctx ctx;
 
-	ctx.state = PAR_REQ_LINE_METHOD;
+	ctx.state = PS_REQ_LINE_METHOD;
 
 	ctx.cap = 1024;
 	ctx.buf = malloc(sizeof(char) * ctx.cap);
@@ -131,10 +131,10 @@ static enum parse_result parse_req_line_method(struct parse_ctx *ctx) {
 			break;
 		}
 		ctx->req->method = parsed_method;
-		ctx->state = PAR_REQ_LINE_TARGET;
+		ctx->state = PS_REQ_LINE_TARGET;
 		return PR_COMPLETE;
 	}
-	ctx->state = PAR_ERROR;
+	ctx->state = PS_ERROR;
 	ctx->mark = MARK_NONE;
 	return PR_COMPLETE;
 }
@@ -163,7 +163,7 @@ static void parse_asterisk_form(struct parse_ctx *ctx) {
 	assert(ctx->req->raw_target.len == 1);
 	assert(ctx->req->raw_target.ptr[0] == '*');
 
-	ctx->state = PAR_REQ_LINE_HTTP_NAME;
+	ctx->state = PS_REQ_LINE_HTTP_NAME;
 }
 
 static void parse_origin_form(struct parse_ctx *ctx) {
@@ -191,7 +191,7 @@ static void parse_origin_form(struct parse_ctx *ctx) {
 			break;
 		}
 		if (!is_pchar(buf[pos])) {
-			ctx->state = PAR_ERROR;
+			ctx->state = PS_ERROR;
 			return;
 		}
 		pos++;
@@ -203,11 +203,11 @@ static void parse_origin_form(struct parse_ctx *ctx) {
 			pos++;
 			continue;
 		}
-		ctx->state = PAR_REQ_LINE_HTTP_NAME;
+		ctx->state = PS_REQ_LINE_HTTP_NAME;
 		return;
 	}
 
-	ctx->state = PAR_REQ_LINE_HTTP_NAME;
+	ctx->state = PS_REQ_LINE_HTTP_NAME;
 }
 
 static void parse_authority_form(struct parse_ctx *ctx) {
@@ -217,7 +217,7 @@ static void parse_authority_form(struct parse_ctx *ctx) {
 	/* TODO: implement absolute-form and authority-form */
 	assert(0);
 
-	ctx->state = PAR_REQ_LINE_HTTP_NAME;
+	ctx->state = PS_REQ_LINE_HTTP_NAME;
 }
 
 static void parse_absolute_form(struct parse_ctx *ctx) {
@@ -228,7 +228,7 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 	/* TODO: implement absolute-form and authority-form */
 	assert(0);
 
-	ctx->state = PAR_REQ_LINE_HTTP_NAME;
+	ctx->state = PS_REQ_LINE_HTTP_NAME;
 }
 
 static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
@@ -239,7 +239,7 @@ static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
 	if (ctx->mark == MARK_NONE) { /* First time into the function */
 		if (ch == SYM_SP) {
 			/* Two SP, reject for now, TODO: handle LWSP */
-			ctx->state = PAR_ERROR;
+			ctx->state = PS_ERROR;
 			return PR_COMPLETE;
 		}
 		ctx->mark = ctx->pos;
@@ -271,7 +271,7 @@ static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
 pre_line_target_switch:
 	switch (ctx->req->target_form) {
 	case TF_ASTERISK: /* More than two characters in asterisk-form */
-		ctx->state = PAR_ERROR;
+		ctx->state = PS_ERROR;
 		ctx->mark = MARK_NONE;
 		return PR_COMPLETE;
 
@@ -282,7 +282,7 @@ pre_line_target_switch:
 			ch = ctx->buf[ctx->pos];
 		}
 		if (ch != SYM_SP) { /* Invalid character for origin-form */
-			ctx->state = PAR_ERROR;
+			ctx->state = PS_ERROR;
 			ctx->mark = MARK_NONE;
 			return PR_COMPLETE;
 		}
@@ -302,7 +302,7 @@ pre_line_target_switch:
 			if (ctx->pos >= ctx->len) return PR_NEED_MORE;
 			ch = ctx->buf[ctx->pos];
 			if (ch != SYM_SP) { /* More symbols after initial '*' */
-				ctx->state = PAR_ERROR;
+				ctx->state = PS_ERROR;
 				ctx->mark = MARK_NONE;
 				return PR_COMPLETE;
 			}
@@ -331,7 +331,7 @@ pre_line_target_switch:
 			ch = ctx->buf[ctx->pos];
 		}
 		if (ch != SYM_SP) { /* Invalid character */
-			ctx->state = PAR_ERROR;
+			ctx->state = PS_ERROR;
 			ctx->mark = MARK_NONE;
 			return PR_COMPLETE;
 		}
@@ -358,11 +358,11 @@ static enum parse_result parse_req_line_http_name(struct parse_ctx *ctx) {
 	if (ctx->pos + 4 >= ctx->len) return PR_NEED_MORE;
 
 	if (memcmp(ctx->buf + ctx->pos, "HTTP/", 5)) {
-		ctx->state = PAR_ERROR;
+		ctx->state = PS_ERROR;
 		return PR_COMPLETE;
 	}
 	ctx->pos += 5;
-	ctx->state = PAR_REQ_LINE_HTTP_MAJOR;
+	ctx->state = PS_REQ_LINE_HTTP_MAJOR;
 	return PR_COMPLETE;
 }
 
@@ -371,12 +371,12 @@ static enum parse_result parse_req_line_http_major(struct parse_ctx *ctx) {
 	/*                          ^                 */
 	char ch = ctx->buf[ctx->pos];
 	if (!is_digit(ch)) {
-		ctx->state = PAR_ERROR;
+		ctx->state = PS_ERROR;
 		return PR_COMPLETE;
 	}
 	ctx->req->http_major = to_digit(ch);
 	ctx->pos++;
-	ctx->state = PAR_REQ_LINE_HTTP_PERIOD;
+	ctx->state = PS_REQ_LINE_HTTP_PERIOD;
 	return PR_COMPLETE;
 }
 
@@ -386,15 +386,15 @@ static enum parse_result parse_req_line_http_period(struct parse_ctx *ctx) {
 	char ch = ctx->buf[ctx->pos];
 	if (ch == SYM_CR) {
 		ctx->req->http_minor = 0;
-		ctx->state = PAR_REQ_LINE_CRLF;
+		ctx->state = PS_REQ_LINE_CRLF;
 		return PR_COMPLETE;
 	}
 	if (ch != '.') {
-		ctx->state = PAR_ERROR;
+		ctx->state = PS_ERROR;
 		return PR_COMPLETE;
 	}
 	ctx->pos++;
-	ctx->state = PAR_REQ_LINE_HTTP_MINOR;
+	ctx->state = PS_REQ_LINE_HTTP_MINOR;
 	return PR_COMPLETE;
 }
 
@@ -403,12 +403,12 @@ static enum parse_result parse_req_line_http_minor(struct parse_ctx *ctx) {
 	/*                                    ^   */
 	char ch = ctx->buf[ctx->pos];
 	if (!is_digit(ch)) {
-		ctx->state = PAR_ERROR;
+		ctx->state = PS_ERROR;
 		return PR_COMPLETE;
 	}
 	ctx->req->http_minor = to_digit(ch);
 	ctx->pos++;
-	ctx->state = PAR_REQ_LINE_CRLF;
+	ctx->state = PS_REQ_LINE_CRLF;
 	return PR_COMPLETE;
 }
 
@@ -416,11 +416,11 @@ static enum parse_result parse_req_line_crlf(struct parse_ctx *ctx) {
 	if (ctx->pos + 1 >= ctx->len) return PR_NEED_MORE;
 
 	if (memcmp(ctx->buf + ctx->pos, TOK_CRLF, 2)) {
-		ctx->state = PAR_ERROR;
+		ctx->state = PS_ERROR;
 		return PR_COMPLETE;
 	}
 	ctx->pos += 2;
-	ctx->state = PAR_FIELD_LINE_NAME;
+	ctx->state = PS_FIELD_LINE_NAME;
 	return PR_COMPLETE;
 }
 
@@ -546,10 +546,10 @@ static enum parse_result parse_field_line_name(struct parse_ctx *ctx) {
 		if (ctx->pos + 1 >= ctx->len) return PR_NEED_MORE;
 		if (ctx->buf[ctx->pos + 1] == SYM_LF) {
 			ctx->pos += 2;
-			ctx->state = PAR_DONE;
+			ctx->state = PS_DONE;
 			return PR_COMPLETE;
 		}
-		ctx->state = PAR_ERROR;
+		ctx->state = PS_ERROR;
 		return PR_COMPLETE;
 	}
 
@@ -564,7 +564,7 @@ static enum parse_result parse_field_line_name(struct parse_ctx *ctx) {
 	}
 
 	if (ch != ':') {
-		ctx->state = PAR_ERROR;
+		ctx->state = PS_ERROR;
 		return PR_COMPLETE;
 	}
 
@@ -578,7 +578,7 @@ static enum parse_result parse_field_line_name(struct parse_ctx *ctx) {
 	ctx->req->headers[ctx->req->num_headers - 1].type = parse_header_type(
 		&field_name
 	);
-	ctx->state = PAR_FIELD_LINE_PRE_OWS;
+	ctx->state = PS_FIELD_LINE_PRE_OWS;
 	return PR_COMPLETE;
 }
 
@@ -591,7 +591,7 @@ static enum parse_result parse_field_line_pre_ows(struct parse_ctx *ctx) {
 		ch = ctx->buf[ctx->pos];
 	}
 
-	ctx->state = PAR_FIELD_LINE_VALUE;
+	ctx->state = PS_FIELD_LINE_VALUE;
 	return PR_COMPLETE;
 }
 
@@ -612,11 +612,11 @@ static enum parse_result parse_field_line_value(struct parse_ctx *ctx) {
 			ctx->pos - ctx->mark
 		);
 		ctx->mark = MARK_NONE;
-		ctx->state = PAR_FIELD_LINE_POST_OWS;
+		ctx->state = PS_FIELD_LINE_POST_OWS;
 		return PR_COMPLETE;
 	}
 	ctx->mark = MARK_NONE;
-	ctx->state = PAR_ERROR;
+	ctx->state = PS_ERROR;
 	return PR_COMPLETE;
 }
 
@@ -632,15 +632,15 @@ static enum parse_result parse_field_line_post_ows(struct parse_ctx *ctx) {
 	if (ch == SYM_CR) {
 		if (ctx->pos + 1 >= ctx->len) return PR_NEED_MORE;
 		if (ctx->buf[ctx->pos + 1] != SYM_LF) {
-			ctx->state = PAR_ERROR;
+			ctx->state = PS_ERROR;
 			return PR_COMPLETE;
 		}
 		ctx->pos += 2;
-		ctx->state = PAR_FIELD_LINE_NAME;
+		ctx->state = PS_FIELD_LINE_NAME;
 		return PR_COMPLETE;
 	}
 
-	ctx->state = PAR_ERROR;
+	ctx->state = PS_ERROR;
 	return PR_COMPLETE;
 }
 
@@ -652,46 +652,46 @@ enum parse_result feed(struct parse_ctx *ctx, const char *req_bytes, size_t n) {
 
 	while (
 			ctx->pos < ctx->len &&
-			ctx->state != PAR_DONE &&
-			ctx->state != PAR_ERROR
+			ctx->state != PS_DONE &&
+			ctx->state != PS_ERROR
 	      ) {
 		switch (ctx->state) {
-		case PAR_REQ_LINE_METHOD:
+		case PS_REQ_LINE_METHOD:
 			res = parse_req_line_method(ctx);
 			break;
-		case PAR_REQ_LINE_TARGET:
+		case PS_REQ_LINE_TARGET:
 			res = parse_req_line_target(ctx);
 			break;
-		case PAR_REQ_LINE_HTTP_NAME:
+		case PS_REQ_LINE_HTTP_NAME:
 			res = parse_req_line_http_name(ctx);
 			break;
-		case PAR_REQ_LINE_HTTP_MAJOR:
+		case PS_REQ_LINE_HTTP_MAJOR:
 			res = parse_req_line_http_major(ctx);
 			break;
-		case PAR_REQ_LINE_HTTP_PERIOD:
+		case PS_REQ_LINE_HTTP_PERIOD:
 			res = parse_req_line_http_period(ctx);
 			break;
-		case PAR_REQ_LINE_HTTP_MINOR:
+		case PS_REQ_LINE_HTTP_MINOR:
 			res = parse_req_line_http_minor(ctx);
 			break;
-		case PAR_REQ_LINE_CRLF:
+		case PS_REQ_LINE_CRLF:
 			res = parse_req_line_crlf(ctx);
 			break;
-		case PAR_FIELD_LINE_NAME:
+		case PS_FIELD_LINE_NAME:
 			res = parse_field_line_name(ctx);
 			break;
-		case PAR_FIELD_LINE_PRE_OWS:
+		case PS_FIELD_LINE_PRE_OWS:
 			res = parse_field_line_pre_ows(ctx);
 			break;
-		case PAR_FIELD_LINE_VALUE:
+		case PS_FIELD_LINE_VALUE:
 			res = parse_field_line_value(ctx);
 			break;
-		case PAR_FIELD_LINE_POST_OWS:
+		case PS_FIELD_LINE_POST_OWS:
 			res = parse_field_line_post_ows(ctx);
 			break;
 
-		case PAR_ERROR:
-		case PAR_DONE:
+		case PS_ERROR:
+		case PS_DONE:
 			break;
 		}
 
