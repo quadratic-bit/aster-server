@@ -58,3 +58,10 @@ void append_empty_header(
 	new_header.type = HH_UNK;
 	req->headers[req->num_headers++] = new_header;
 }
+
+void strip_postfix_ows(struct slice *header_value) {
+	const char *end = header_value->ptr + header_value->len - 1;
+	while (*end == ' ' || *end == '\t') end--;
+	assert(end > header_value->ptr);
+	header_value->len = (size_t)(end - header_value->ptr + 1);
+}

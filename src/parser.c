@@ -683,33 +683,17 @@ static enum parse_result parse_field_line_pre_ows(struct parse_ctx *ctx) {
 
 static enum parse_result parse_field_line_value(struct parse_ctx *ctx) {
 	char ch = ctx->buf[ctx->pos];
+	struct slice h_value;
 
-	if (ctx->mark == MARK_NONE) ctx->mark = ctx->pos;
+	if (ctx->mark == MARK_NONE) {
+		if (ch == SYM_CR) { /* empty header value */
+			ctx->state = PS_ERROR;
+			return PR_COMPLETE;
+		}
+		ctx->mark = ctx->pos;
+	}
 
 	while (is_vchar(ch) || is_obs_text(ch)) {
-		ctx->pos++;
-		if (ctx->pos >= ctx->len) return PR_NEED_MORE;
-		ch = ctx->buf[ctx->pos];
-	}
-
-	if (ch == SYM_SP || ch == SYM_HTAB || ch == SYM_CR) {
-		ctx->req->headers[ctx->req->num_headers - 1].value = get_slice(
-			ctx->buf + ctx->mark,
-			ctx->pos - ctx->mark
-		);
-		ctx->mark = MARK_NONE;
-		ctx->state = PS_FIELD_LINE_POST_OWS;
-		return PR_COMPLETE;
-	}
-	ctx->mark = MARK_NONE;
-	ctx->state = PS_ERROR;
-	return PR_COMPLETE;
-}
-
-static enum parse_result parse_field_line_post_ows(struct parse_ctx *ctx) {
-	char ch = ctx->buf[ctx->pos];
-
-	while (ch == SYM_SP || ch == SYM_HTAB) {
 		ctx->pos++;
 		if (ctx->pos >= ctx->len) return PR_NEED_MORE;
 		ch = ctx->buf[ctx->pos];
@@ -721,11 +705,18 @@ static enum parse_result parse_field_line_post_ows(struct parse_ctx *ctx) {
 			ctx->state = PS_ERROR;
 			return PR_COMPLETE;
 		}
+		h_value = get_slice(
+			ctx->buf + ctx->mark,
+			ctx->pos - ctx->mark
+		);
+		strip_postfix_ows(&h_value);
+		ctx->req->headers[ctx->req->num_headers - 1].value = h_value;
+		ctx->mark = MARK_NONE;
 		ctx->pos += 2;
 		ctx->state = PS_FIELD_LINE_NAME;
 		return PR_COMPLETE;
 	}
-
+	ctx->mark = MARK_NONE;
 	ctx->state = PS_ERROR;
 	return PR_COMPLETE;
 }
@@ -771,9 +762,6 @@ enum parse_result feed(struct parse_ctx *ctx, const char *req_bytes, size_t n) {
 			break;
 		case PS_FIELD_LINE_VALUE:
 			res = parse_field_line_value(ctx);
-			break;
-		case PS_FIELD_LINE_POST_OWS:
-			res = parse_field_line_post_ows(ctx);
 			break;
 
 		case PS_ERROR:

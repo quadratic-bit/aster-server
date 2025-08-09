@@ -97,3 +97,5 @@ void append_empty_header(
 		struct http_request *req,
 		struct slice header_name
 );
+
+void strip_postfix_ows(struct slice *header_value);
