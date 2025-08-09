@@ -261,7 +261,7 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 				ctx->state = PS_ERROR;
 				return;
 			}
-		} while (is_hexdig(buf[pos]));
+		} while (is_hexdig(buf[pos]) || buf[pos] == ':');
 
 		if (buf[pos] != ']') {
 			if (pos >= target.len) {
