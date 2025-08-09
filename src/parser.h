@@ -5,7 +5,7 @@
 #define SYM_HTAB '\t'
 #define SYM_CR '\r'
 #define SYM_LF '\n'
-#define TOK_CRLF "\r\n"
+#define CRLF "\r\n"
 #define MARK_NONE SIZE_MAX
 
 enum parse_state {

@@ -2,7 +2,7 @@
 #include "parser.h"
 
 static void test_get_origin(void) {
-	const char *raw_req = "GET /path?q=1 HTTP/1.1\r\nHost: ex.com\r\n\r\n";
+	const char *raw_req = RL11("GET", "/path?q=1") HOST("ex.com") END;
 	struct http_request req = new_request();
 	struct parse_ctx ctx = parse_ctx_init(&req);
 
@@ -33,7 +33,7 @@ static void test_get_origin(void) {
 }
 
 static void test_get_asterisk(void) {
-	const char *raw_req = "OPTIONS * HTTP/1.1\r\nHost: ex.com\r\n\r\n";
+	const char *raw_req = RL11("OPTIONS", "*") HOST("ex.com") END;
 	struct http_request req = new_request();
 	struct parse_ctx ctx = parse_ctx_init(&req);
 
@@ -64,8 +64,8 @@ static void test_get_asterisk(void) {
 }
 
 static void test_get_absolute(void) {
-	const char *raw_req = "GET http://ex.com:80/path?q=1 HTTP/1.1\r\n"
-		"Host: ex.com\r\n\r\n";
+	const char *raw_req = RL11("GET", "http://ex.com:80/path?q=1") \
+				HOST("ex.com") END;
 	struct http_request req = new_request();
 	struct parse_ctx ctx = parse_ctx_init(&req);
 

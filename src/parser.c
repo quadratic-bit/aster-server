@@ -229,9 +229,6 @@ static void parse_origin_form(struct parse_ctx *ctx) {
 	ctx->state = PS_REQ_LINE_HTTP_NAME;
 }
 
-
-
-
 static void parse_absolute_form(struct parse_ctx *ctx) {
 	const struct slice target = ctx->req->raw_target;
 	const char *buf = target.ptr;
@@ -509,7 +506,7 @@ static enum parse_result parse_req_line_http_minor(struct parse_ctx *ctx) {
 static enum parse_result parse_req_line_crlf(struct parse_ctx *ctx) {
 	if (ctx->pos + 1 >= ctx->len) return PR_NEED_MORE;
 
-	if (memcmp(ctx->buf + ctx->pos, TOK_CRLF, 2)) {
+	if (memcmp(ctx->buf + ctx->pos, CRLF, 2)) {
 		ctx->state = PS_ERROR;
 		return PR_COMPLETE;
 	}

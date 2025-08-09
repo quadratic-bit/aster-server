@@ -5,6 +5,12 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define CRLF "\r\n"
+#define RL11(method, target) method " " target " " "HTTP/1.1" CRLF
+#define H(key, value) key ": " value CRLF
+#define HOST(value) H("Host", value)
+#define END CRLF
+
 #define RUN_TEST(fn)				\
 	do {					\
 		fprintf(stderr, "%s: ", #fn);	\
