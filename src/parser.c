@@ -444,8 +444,8 @@ pre_line_target_switch:
 }
 
 static enum parse_result parse_req_line_http_name(struct parse_ctx *ctx) {
-	/* HTTP-version = "HTTP/" DIGIT [ "." DIGIT ] */
-	/*                 ^                          */
+	/* HTTP-version = "HTTP/" DIGIT "." DIGIT */
+	/*                 ^                      */
 	if (ctx->pos + 4 >= ctx->len) return PR_NEED_MORE;
 
 	if (memcmp(ctx->buf + ctx->pos, "HTTP/", 5)) {
@@ -458,8 +458,8 @@ static enum parse_result parse_req_line_http_name(struct parse_ctx *ctx) {
 }
 
 static enum parse_result parse_req_line_http_major(struct parse_ctx *ctx) {
-	/* HTTP-version = "HTTP/" DIGIT [ "." DIGIT ] */
-	/*                          ^                 */
+	/* HTTP-version = "HTTP/" DIGIT "." DIGIT */
+	/*                          ^             */
 	char ch = ctx->buf[ctx->pos];
 	if (!is_digit(ch)) {
 		ctx->state = PS_ERROR;
@@ -472,14 +472,9 @@ static enum parse_result parse_req_line_http_major(struct parse_ctx *ctx) {
 }
 
 static enum parse_result parse_req_line_http_period(struct parse_ctx *ctx) {
-	/* HTTP-version = "HTTP/" DIGIT [ "." DIGIT ] */
-	/*                                 ^          */
+	/* HTTP-version = "HTTP/" DIGIT "." DIGIT */
+	/*                               ^        */
 	char ch = ctx->buf[ctx->pos];
-	if (ch == SYM_CR) {
-		ctx->req->http_minor = 0;
-		ctx->state = PS_REQ_LINE_CRLF;
-		return PR_COMPLETE;
-	}
 	if (ch != '.') {
 		ctx->state = PS_ERROR;
 		return PR_COMPLETE;
