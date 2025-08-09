@@ -67,6 +67,14 @@ static int is_digit(char ch) {
 	return ch >= '0' && ch <= '9';
 }
 
+/* return 1 if HEXDIG, 0 otherwise */
+static int is_hexdig(char ch) {
+	return is_digit(ch) || (
+		(ch >= 'a' && ch <= 'f') ||
+		(ch >= 'A' && ch <= 'F')
+	);
+}
+
 /* return 1 if tchar, 0 otherwise */
 static int is_tchar(char ch) {
 	if (is_alpha(ch) || is_digit(ch)) return 1;
@@ -139,7 +147,6 @@ static enum parse_result parse_req_line_method(struct parse_ctx *ctx) {
 	return PR_COMPLETE;
 }
 
-
 /* parse DIGIT into uint8_t */
 static uint8_t to_digit(char ch) {
 	assert(is_digit(ch));
@@ -155,6 +162,18 @@ static int is_pchar(char ch) {
 		return 1;
 	}
 	return ch == '_' || ch == '~' || ch == ':' || ch == '@' || ch == '!' ||
+		ch == ';' || ch == '=';
+}
+
+/* return 1 if allowed reg-name char, 0 otherwise */
+static int is_regchar(char ch) {
+	if (is_alpha(ch) || is_digit(ch)) {
+		return 1;
+	}
+	if (ch >= '$' && ch <= '.') {
+		return 1;
+	}
+	return ch == '_' || ch == '~' || ch == '!' ||
 		ch == ';' || ch == '=';
 }
 
@@ -210,25 +229,104 @@ static void parse_origin_form(struct parse_ctx *ctx) {
 	ctx->state = PS_REQ_LINE_HTTP_NAME;
 }
 
-static void parse_authority_form(struct parse_ctx *ctx) {
-	assert(ctx->req->target_form == TF_AUTHORITY ||
-			ctx->req->target_form == TF_ABSOLUTE);
 
-	/* TODO: implement absolute-form and authority-form */
-	assert(0);
 
-	ctx->state = PS_REQ_LINE_HTTP_NAME;
-}
 
 static void parse_absolute_form(struct parse_ctx *ctx) {
-	/* TODO: implement absolute-form and authority-form */
-	assert(ctx->req->target_form == TF_AUTHORITY ||
-			ctx->req->target_form == TF_ABSOLUTE);
+	const struct slice target = ctx->req->raw_target;
+	const char *buf = target.ptr;
+	size_t pos = 0;
 
-	/* TODO: implement absolute-form and authority-form */
-	assert(0);
+	assert(ctx->req->target_form == TF_UNK);
 
-	ctx->state = PS_REQ_LINE_HTTP_NAME;
+	if (target.len < 8) {
+		ctx->state = PS_ERROR; /* TODO: decide on state */
+		return;
+	}
+
+	if (memcmp(buf, "http://", 7)) {
+		ctx->state = PS_ERROR;
+		return;
+	}
+
+	pos += 7;
+	ctx->req->target_form = TF_ABSOLUTE;
+
+	if (buf[pos] == ':') { /* empty host */
+		ctx->state = PS_ERROR;
+		return;
+	}
+
+	if (buf[pos] == '[') { /* IP-literal */
+		do {
+			pos++;
+			if (pos >= target.len) {
+				ctx->state = PS_ERROR;
+				return;
+			}
+		} while (is_hexdig(buf[pos]));
+
+		if (buf[pos] != ']') {
+			if (pos >= target.len) {
+				ctx->state = PS_ERROR;
+				return;
+			}
+		}
+		pos++;
+	} else {
+		while (is_regchar(buf[pos])) { /* assume reg-name host */
+			pos++;
+			if (pos >= target.len) {
+				ctx->state = PS_REQ_LINE_HTTP_NAME;
+				return;
+			}
+		}
+		if (buf[pos] == '@') { /* it was userinfo, reject */
+			ctx->state = PS_ERROR;
+			return;
+		}
+	}
+
+	if (buf[pos] == ':') { /* port */
+		pos++;
+		if (pos >= target.len) { /* empty port */
+			ctx->state = PS_REQ_LINE_HTTP_NAME;
+			return;
+		}
+		while (is_digit(buf[pos])) {
+			pos++;
+			if (pos >= target.len) {
+				ctx->state = PS_REQ_LINE_HTTP_NAME;
+				return;
+			}
+		}
+	}
+
+	if (buf[pos] != '/' && buf[pos] != '?') { /* see path-abempty */
+		ctx->state = PS_ERROR;
+		return;
+	}
+
+	while (buf[pos] == '/' || is_pchar(buf[pos])) {
+		pos++;
+		if (pos >= target.len) {
+			ctx->state = PS_REQ_LINE_HTTP_NAME;
+			return;
+		}
+	}
+
+	if (buf[pos] != '?') {
+		ctx->state = PS_ERROR;
+		return;
+	}
+
+	do {
+		pos++;
+		if (pos >= target.len) {
+			ctx->state = PS_REQ_LINE_HTTP_NAME;
+			return;
+		}
+	} while (buf[pos] == '/' || buf[pos] == '?' || is_pchar(buf[pos]));
 }
 
 static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
@@ -257,12 +355,10 @@ static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
 		case TF_ORIGIN:
 			parse_origin_form(ctx);
 			break;
-		case TF_AUTHORITY:
-			parse_authority_form(ctx);
-			break;
 		case TF_ABSOLUTE:
 			parse_absolute_form(ctx);
 			break;
+		case TF_AUTHORITY:
 		case TF_UNK: assert(0);
 		}
 		return PR_COMPLETE;
@@ -322,8 +418,6 @@ pre_line_target_switch:
 			ch = ctx->buf[ctx->pos];
 			goto pre_line_target_switch;
 		}
-
-		/* if (!is_alpha(ch)) ctx->req->target_form = TF_AUTHORITY; */
 
 		while (ch == '/' || ch == '?' || is_pchar(ch)) {
 			ctx->pos++;
