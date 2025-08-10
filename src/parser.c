@@ -107,6 +107,7 @@ static int consume_pct_enc(struct parse_ctx *ctx) {
 
 static enum parse_result parse_req_line_method(struct parse_ctx *ctx) {
 	enum http_method parsed_method;
+	struct slice method;
 	char ch;
 
 	if (ctx->mark == MARK_NONE) ctx->mark = ctx->pos;
@@ -116,48 +117,49 @@ static enum parse_result parse_req_line_method(struct parse_ctx *ctx) {
 		if (ctx->pos >= ctx->len) return PR_NEED_MORE;
 		ch = ctx->buf[ctx->pos];
 	}
-	if (ch == SYM_SP) {
-		struct slice method = get_slice(
-			ctx->buf + ctx->mark,
-			ctx->pos - ctx->mark
-		);
+	if (ch != SYM_SP) {
+		ctx->state = PS_ERROR;
 		ctx->mark = MARK_NONE;
-		ctx->pos++;
-		parsed_method = HM_UNK;
-		switch (method.len) {
-		case 3:
-			if (!slice_str_cmp(&method, "GET"))
-				parsed_method = HM_GET;
-			else if (!slice_str_cmp(&method, "PUT"))
-				parsed_method = HM_PUT;
-			break;
-		case 4:
-			if (!slice_str_cmp(&method, "POST"))
-				parsed_method = HM_POST;
-			else if (!slice_str_cmp(&method, "HEAD"))
-				parsed_method = HM_HEAD;
-			break;
-		case 5:
-			if (!slice_str_cmp(&method, "TRACE"))
-				parsed_method = HM_TRACE;
-			break;
-		case 6:
-			if (!slice_str_cmp(&method, "DELETE"))
-				parsed_method = HM_DELETE;
-			break;
-		case 7:
-			if (!slice_str_cmp(&method, "CONNECT"))
-				parsed_method = HM_CONNECT;
-			else if (!slice_str_cmp(&method, "OPTIONS"))
-				parsed_method = HM_OPTIONS;
-			break;
-		}
-		ctx->req->method = parsed_method;
-		ctx->state = PS_REQ_LINE_TARGET;
 		return PR_COMPLETE;
 	}
-	ctx->state = PS_ERROR;
+
+	method = get_slice(
+		ctx->buf + ctx->mark,
+		ctx->pos - ctx->mark
+	);
 	ctx->mark = MARK_NONE;
+	ctx->pos++;
+	parsed_method = HM_UNK;
+	switch (method.len) {
+	case 3:
+		if (!slice_str_cmp(&method, "GET"))
+			parsed_method = HM_GET;
+		else if (!slice_str_cmp(&method, "PUT"))
+			parsed_method = HM_PUT;
+		break;
+	case 4:
+		if (!slice_str_cmp(&method, "POST"))
+			parsed_method = HM_POST;
+		else if (!slice_str_cmp(&method, "HEAD"))
+			parsed_method = HM_HEAD;
+		break;
+	case 5:
+		if (!slice_str_cmp(&method, "TRACE"))
+			parsed_method = HM_TRACE;
+		break;
+	case 6:
+		if (!slice_str_cmp(&method, "DELETE"))
+			parsed_method = HM_DELETE;
+		break;
+	case 7:
+		if (!slice_str_cmp(&method, "CONNECT"))
+			parsed_method = HM_CONNECT;
+		else if (!slice_str_cmp(&method, "OPTIONS"))
+			parsed_method = HM_OPTIONS;
+		break;
+	}
+	ctx->req->method = parsed_method;
+	ctx->state = PS_REQ_LINE_TARGET;
 	return PR_COMPLETE;
 }
 
