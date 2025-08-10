@@ -98,6 +98,14 @@ static int consume_pct_enc(struct parse_ctx *ctx) {
 	return 1;
 }
 
+/* if is ALPHA, lowercase */
+static char lower(char ch) {
+	if (ch >= 'A' && ch <= 'Z') {
+		return ch | 0x20;
+	}
+	return ch;
+}
+
 static enum parse_result parse_req_line_method(struct parse_ctx *ctx) {
 	enum http_method parsed_method;
 	struct slice method;
@@ -526,109 +534,109 @@ static enum http_header_type parse_header_type(struct slice *name) {
 	enum http_header_type parsed_type = HH_UNK;
 	switch (name->len) {
 	case 2:
-		if (!slice_str_cmp(name, "TE"))
+		if (!slice_str_cmp(name, "te"))
 			parsed_type = HH_TE;
 		break;
 	case 3:
-		if (!slice_str_cmp(name, "Via"))
+		if (!slice_str_cmp(name, "via"))
 			parsed_type = HH_VIA;
 		break;
 	case 4:
-		if (!slice_str_cmp(name, "Date"))
+		if (!slice_str_cmp(name, "date"))
 			parsed_type = HH_DATE;
-		else if (!slice_str_cmp(name, "Host"))
+		else if (!slice_str_cmp(name, "host"))
 			parsed_type = HH_HOST;
-		else if (!slice_str_cmp(name, "From"))
+		else if (!slice_str_cmp(name, "from"))
 			parsed_type = HH_FROM;
-		else if (!slice_str_cmp(name, "Vary"))
+		else if (!slice_str_cmp(name, "vary"))
 			parsed_type = HH_VARY;
 		break;
 	case 5:
-		if (!slice_str_cmp(name, "Range"))
+		if (!slice_str_cmp(name, "range"))
 			parsed_type = HH_RANGE;
 		break;
 	case 6:
-		if (!slice_str_cmp(name, "Accept"))
+		if (!slice_str_cmp(name, "accept"))
 			parsed_type = HH_ACCEPT;
-		else if (!slice_str_cmp(name, "Expect"))
+		else if (!slice_str_cmp(name, "expect"))
 			parsed_type = HH_EXPECT;
-		else if (!slice_str_cmp(name, "Pragma"))
+		else if (!slice_str_cmp(name, "pragma"))
 			parsed_type = HH_PRAGMA;
 		break;
 	case 7:
-		if (!slice_str_cmp(name, "Expires"))
+		if (!slice_str_cmp(name, "expires"))
 			parsed_type = HH_EXPIRES;
-		else if (!slice_str_cmp(name, "Referer"))
+		else if (!slice_str_cmp(name, "referer"))
 			parsed_type = HH_REFERER;
-		else if (!slice_str_cmp(name, "Trailer"))
+		else if (!slice_str_cmp(name, "trailer"))
 			parsed_type = HH_TRAILER;
-		else if (!slice_str_cmp(name, "Upgrade"))
+		else if (!slice_str_cmp(name, "upgrade"))
 			parsed_type = HH_UPGRADE;
-		else if (!slice_str_cmp(name, "Warning"))
+		else if (!slice_str_cmp(name, "warning"))
 			parsed_type = HH_WARNING;
 		break;
 	case 8:
-		if (!slice_str_cmp(name, "If-Match"))
+		if (!slice_str_cmp(name, "if-match"))
 			parsed_type = HH_IF_MATCH;
-		else if (!slice_str_cmp(name, "If-Range"))
+		else if (!slice_str_cmp(name, "if-range"))
 			parsed_type = HH_IF_RANGE;
 		break;
 	case 10:
-		if (!slice_str_cmp(name, "Connection"))
+		if (!slice_str_cmp(name, "connection"))
 			parsed_type = HH_CONNECTION;
-		else if (!slice_str_cmp(name, "User-Agent"))
+		else if (!slice_str_cmp(name, "user-agent"))
 			parsed_type = HH_USER_AGENT;
 		break;
 	case 11:
-		if (!slice_str_cmp(name, "Content-MD5"))
+		if (!slice_str_cmp(name, "content-md5"))
 			parsed_type = HH_CONTENT_MD5;
 		break;
 	case 12:
-		if (!slice_str_cmp(name, "Content-Type"))
+		if (!slice_str_cmp(name, "content-type"))
 			parsed_type = HH_CONTENT_TYPE;
-		else if (!slice_str_cmp(name, "Max-Forwards"))
+		else if (!slice_str_cmp(name, "max-forwards"))
 			parsed_type = HH_MAX_FORWARDS;
 		break;
 	case 13:
-		if (!slice_str_cmp(name, "Authorization"))
+		if (!slice_str_cmp(name, "authorization"))
 			parsed_type = HH_AUTHORIZATION;
-		else if (!slice_str_cmp(name, "Cache-Control"))
+		else if (!slice_str_cmp(name, "cache-control"))
 			parsed_type = HH_CACHE_CONTROL;
-		else if (!slice_str_cmp(name, "Content-Range"))
+		else if (!slice_str_cmp(name, "content-range"))
 			parsed_type = HH_CONTENT_RANGE;
-		else if (!slice_str_cmp(name, "If-None-Match"))
+		else if (!slice_str_cmp(name, "if-none-match"))
 			parsed_type = HH_IF_NONE_MATCH;
 		break;
 	case 14:
-		if (!slice_str_cmp(name, "Accept-Charset"))
+		if (!slice_str_cmp(name, "accept-charset"))
 			parsed_type = HH_ACCEPT_CHARSET;
-		else if (!slice_str_cmp(name, "Content-Length"))
+		else if (!slice_str_cmp(name, "content-length"))
 			parsed_type = HH_CONTENT_LENGTH;
 		break;
 	case 15:
-		if (!slice_str_cmp(name, "Accept-Encoding"))
+		if (!slice_str_cmp(name, "accept-encoding"))
 			parsed_type = HH_ACCEPT_ENCODING;
-		else if (!slice_str_cmp(name, "Accept-Language"))
+		else if (!slice_str_cmp(name, "accept-language"))
 			parsed_type = HH_ACCEPT_LANGUAGE;
 		break;
 	case 16:
-		if (!slice_str_cmp(name, "Content-Encoding"))
+		if (!slice_str_cmp(name, "content-encoding"))
 			parsed_type = HH_CONTENT_ENCODING;
-		else if (!slice_str_cmp(name, "Content-Language"))
+		else if (!slice_str_cmp(name, "content-language"))
 			parsed_type = HH_CONTENT_LANGUAGE;
-		else if (!slice_str_cmp(name, "Content-Location"))
+		else if (!slice_str_cmp(name, "content-location"))
 			parsed_type = HH_CONTENT_LOCATION;
 		break;
 	case 17:
-		if (!slice_str_cmp(name, "If-Modified-Since"))
+		if (!slice_str_cmp(name, "if-modified-since"))
 			parsed_type = HH_IF_MODIFIED_SINCE;
-		else if (!slice_str_cmp(name, "Transfer-Encoding"))
+		else if (!slice_str_cmp(name, "transfer-encoding"))
 			parsed_type = HH_TRANSFER_ENCODING;
 		break;
 	case 19:
-		if (!slice_str_cmp(name, "If-Unmodified-Since"))
+		if (!slice_str_cmp(name, "if-unmodified-since"))
 			parsed_type = HH_IF_UNMODIFIED_SINCE;
-		else if (!slice_str_cmp(name, "Proxy-Authorization"))
+		else if (!slice_str_cmp(name, "proxy-authorization"))
 			parsed_type = HH_PROXY_AUTHORIZATION;
 		break;
 	}
@@ -638,6 +646,7 @@ static enum http_header_type parse_header_type(struct slice *name) {
 static enum parse_result parse_field_line_name(struct parse_ctx *ctx) {
 	char ch = ctx->buf[ctx->pos];
 	struct slice field_name;
+	size_t i;
 
 	if (ch == SYM_CR) {
 		if (ctx->pos + 1 >= ctx->len) return PR_NEED_MORE;
@@ -674,6 +683,12 @@ static enum parse_result parse_field_line_name(struct parse_ctx *ctx) {
 		ctx->buf + ctx->mark,
 		ctx->pos - ctx->mark
 	);
+
+	/* Header names are case-insensitive, keep lowercase for consistency */
+	for (i = 0; i < field_name.len; ++i) {
+		(ctx->buf + ctx->mark)[i] = lower((ctx->buf + ctx->mark)[i]);
+	}
+
 	ctx->pos++;
 	ctx->mark = MARK_NONE;
 	append_empty_header(ctx->req, field_name);

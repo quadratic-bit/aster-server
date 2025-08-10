@@ -20,7 +20,7 @@ static void test_get_origin(void) {
 	ASSERT_EQ_MEM(
 		req.headers[0].name.ptr,
 		req.headers[0].name.len,
-		"Host", 4
+		"host", 4
 	);
 	ASSERT_EQ_INT(req.headers[0].type, HH_HOST);
 	ASSERT_EQ_MEM(
@@ -51,7 +51,7 @@ static void test_get_asterisk(void) {
 	ASSERT_EQ_MEM(
 		req.headers[0].name.ptr,
 		req.headers[0].name.len,
-		"Host", 4
+		"host", 4
 	);
 	ASSERT_EQ_INT(req.headers[0].type, HH_HOST);
 	ASSERT_EQ_MEM(
@@ -84,7 +84,7 @@ static void test_get_absolute(void) {
 	ASSERT_EQ_MEM(
 		req.headers[0].name.ptr,
 		req.headers[0].name.len,
-		"Host", 4
+		"host", 4
 	);
 	ASSERT_EQ_INT(req.headers[0].type, HH_HOST);
 	ASSERT_EQ_MEM(
