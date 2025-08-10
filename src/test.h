@@ -33,13 +33,72 @@
 } while (0)
 
 #define ASSERT_EQ_MEM(p1, len1, p2, len2) do { \
-	if ((len1) != (len2) || memcmp((p1), (p2), (len1)) != 0) { \
+	if ((len1) != (len2) || memcmp((p1), (p2), (len1))) { \
 		fprintf(stderr, \
 			"%s:%d: ASSERT_EQ_MEM failed (len %lu vs %lu)\n", \
 			__FILE__, \
 			__LINE__, \
 			(size_t)(len1), \
 			(size_t)(len2)); \
+		exit(1); \
+	} \
+} while (0)
+
+#define ASSERT_EQ_SLICE(slice, str) do { \
+	if (slice.len != strlen(str) || memcmp(slice.ptr, (str), slice.len)) { \
+		fprintf(stderr, \
+			"%s:%d: ASSERT_EQ_SLICE failed (expected \"%.*s\", got \"%s\")\n", \
+			__FILE__, \
+			__LINE__, \
+			(int)(slice.len), \
+			(const char*)(slice.ptr), \
+			(const char*)(str)); \
+		exit(1); \
+	} \
+} while (0)
+
+#define ASSERT_EQ_HEADER(req, type, expect) do { \
+	struct http_header *_test_header = get_header_by_type(req, type); \
+	if (!_test_header) { \
+		fprintf(stderr, \
+			"%s:%d: ASSERT_EQ_HEADER failed - no header with type (%d)\n", \
+			__FILE__, \
+			__LINE__, \
+			(int)(type)); \
+		exit(1); \
+	} \
+	if (_test_header->value.len != strlen(expect) || \
+			memcmp(_test_header->value.ptr, (expect), _test_header->value.len)) { \
+		fprintf(stderr, \
+			"%s:%d: ASSERT_EQ_HEADER failed (expected \"%.*s\", got \"%s\")\n", \
+			__FILE__, \
+			__LINE__, \
+			(int)(_test_header->value.len), \
+			(const char*)(_test_header->value.ptr), \
+			(const char*)(expect)); \
+		exit(1); \
+	} \
+} while (0)
+
+#define ASSERT_EQ_HEADER_NAME(req, name, expect) do { \
+	struct http_header *_test_header = get_header(req, name); \
+	if (!_test_header) { \
+		fprintf(stderr, \
+			"%s:%d: ASSERT_EQ_HEADER failed - no header named \"%s\"\n", \
+			__FILE__, \
+			__LINE__, \
+			(const char*)(name)); \
+		exit(1); \
+	} \
+	if (_test_header->value.len != strlen(expect) || \
+			memcmp(_test_header->value.ptr, (expect), _test_header->value.len)) { \
+		fprintf(stderr, \
+			"%s:%d: ASSERT_EQ_HEADER failed (expected \"%.*s\", got \"%s\")\n", \
+			__FILE__, \
+			__LINE__, \
+			(int)(_test_header->value.len), \
+			(const char*)(_test_header->value.ptr), \
+			(const char*)(expect)); \
 		exit(1); \
 	} \
 } while (0)

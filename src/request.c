@@ -77,6 +77,17 @@ struct http_header *get_header(struct http_request *req, const char *name) {
 	return NULL;
 }
 
+struct http_header *get_header_by_type(struct http_request *req,
+		enum http_header_type type) {
+	size_t i;
+	for (i = 0; i < req->num_headers; ++i) {
+		if (req->headers[i].type == type) {
+			return req->headers + i;
+		}
+	}
+	return NULL;
+}
+
 void strip_postfix_ows(struct slice *header_value) {
 	const char *end = header_value->ptr + header_value->len - 1;
 	while (*end == ' ' || *end == '\t') end--;
