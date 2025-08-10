@@ -106,6 +106,22 @@ static char lower(char ch) {
 	return ch;
 }
 
+/* parse DIGIT into uint8_t */
+static uint8_t to_digit(char ch) {
+	assert(is_digit(ch));
+	return (uint8_t)((unsigned char)ch - 0x30);
+}
+
+static uint16_t parse_port(const char *buf, size_t len) {
+	uint16_t port = 0;
+	uint16_t power = 1;
+	size_t pos;
+	for (pos = 0; pos < len; ++pos, power *= 10) {
+		port += (uint16_t)(to_digit(buf[len - pos - 1]) * power);
+	}
+	return port;
+}
+
 static enum parse_result parse_req_line_method(struct parse_ctx *ctx) {
 	enum http_method parsed_method;
 	struct slice method;
@@ -164,12 +180,6 @@ static enum parse_result parse_req_line_method(struct parse_ctx *ctx) {
 	return PR_COMPLETE;
 }
 
-/* parse DIGIT into uint8_t */
-static uint8_t to_digit(char ch) {
-	assert(is_digit(ch));
-	return (uint8_t)((unsigned char)ch - 0x30);
-}
-
 /* return 1 if pchar, 0 otherwise */
 static int is_pchar(char ch) {
 	if (is_alpha(ch) || is_digit(ch)) {
@@ -205,6 +215,7 @@ static void parse_origin_form(struct parse_ctx *ctx) {
 	const struct slice target = ctx->req->raw_target;
 	const char *buf = target.ptr;
 	size_t pos = 1;
+	size_t mark = 0;
 
 	assert(ctx->req->target_form == TF_ORIGIN);
 	assert(ctx->req->raw_target.len > 0);
@@ -217,6 +228,7 @@ static void parse_origin_form(struct parse_ctx *ctx) {
 			continue;
 		}
 		if (buf[pos] == '?') {
+			ctx->req->path = get_slice(buf + mark, pos - mark);
 			pos++;
 			break;
 		}
@@ -226,15 +238,13 @@ static void parse_origin_form(struct parse_ctx *ctx) {
 		}
 		pos++;
 	}
+	if (ctx->req->path.ptr == NULL) {
+		ctx->req->path = get_slice(buf + mark, pos - mark);
+	}
 
 	/* query */
-	while (pos < target.len) {
-		if (buf[pos] == '/' || buf[pos] == '?' || is_pchar(buf[pos])) {
-			pos++;
-			continue;
-		}
-		ctx->state = PS_REQ_LINE_HTTP_NAME;
-		return;
+	if (pos < target.len) {
+		ctx->req->query = get_slice(buf + pos, target.len - pos);
 	}
 
 	ctx->state = PS_REQ_LINE_HTTP_NAME;
@@ -244,6 +254,7 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 	const struct slice target = ctx->req->raw_target;
 	const char *buf = target.ptr;
 	size_t pos = 0;
+	size_t mark;
 
 	assert(ctx->req->target_form == TF_UNK);
 
@@ -256,6 +267,7 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 		ctx->state = PS_ERROR;
 		return;
 	}
+	ctx->req->scheme = get_slice(buf, 4);
 
 	pos += 7;
 	ctx->req->target_form = TF_ABSOLUTE;
@@ -265,6 +277,7 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 		return;
 	}
 
+	mark = pos;
 	if (buf[pos] == '[') { /* IP-literal */
 		do { /* TODO: parse IPv6 */
 			pos++;
@@ -279,11 +292,20 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 			return;
 		}
 		pos++;
+		if (pos >= target.len) {
+			ctx->state = PS_REQ_LINE_HTTP_NAME;
+			ctx->req->host = get_slice(buf + mark, pos - mark);
+			return;
+		}
 	} else {
 		while (is_regchar(buf[pos])) { /* Assume reg-name host */
 			pos++;
 			if (pos >= target.len) {
 				ctx->state = PS_REQ_LINE_HTTP_NAME;
+				ctx->req->host = get_slice(
+					buf + mark,
+					pos - mark
+				);
 				return;
 			}
 		}
@@ -293,8 +315,11 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 		}
 	}
 
+	ctx->req->host = get_slice(buf + mark, pos - mark);
+
 	if (buf[pos] == ':') { /* Port */
 		pos++;
+		mark = pos;
 		if (pos >= target.len) { /* Empty port */
 			ctx->state = PS_REQ_LINE_HTTP_NAME;
 			return;
@@ -303,9 +328,22 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 			pos++;
 			if (pos >= target.len) {
 				ctx->state = PS_REQ_LINE_HTTP_NAME;
+				ctx->req->port = parse_port(
+					buf + mark,
+					pos - mark
+				);
+				ctx->req->authority = get_slice(
+					ctx->req->host.ptr,
+					pos - mark + ctx->req->host.len + 1
+				);
 				return;
 			}
 		}
+		ctx->req->port = parse_port(buf + mark, pos - mark);
+		ctx->req->authority = get_slice(
+			ctx->req->host.ptr,
+			pos - mark + ctx->req->host.len + 1
+		);
 	}
 
 	/* path-abempty */
@@ -315,8 +353,7 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 		return;
 	}
 
-	/* /segments */
-
+	mark = pos;
 	while (buf[pos] == '/' || is_pchar(buf[pos])) {
 		pos++;
 		if (pos >= target.len) {
@@ -324,6 +361,7 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 			return;
 		}
 	}
+	ctx->req->path = get_slice(buf + mark, pos - mark);
 
 	/* [ ?query ] */
 
@@ -332,12 +370,15 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 		return;
 	}
 
+	mark = pos + 1;
 	do {
 		pos++;
-		if (pos >= target.len) {
-			ctx->state = PS_REQ_LINE_HTTP_NAME;
-			return;
+		if (pos < target.len) {
+			continue;
 		}
+		ctx->req->query = get_slice(buf + mark, pos - mark);
+		ctx->state = PS_REQ_LINE_HTTP_NAME;
+		return;
 	} while (buf[pos] == '/' || buf[pos] == '?' || is_pchar(buf[pos]));
 
 	ctx->state = PS_ERROR;
@@ -752,6 +793,19 @@ static enum parse_result parse_field_line_value(struct parse_ctx *ctx) {
 	return PR_COMPLETE;
 }
 
+static void parse_host(struct parse_ctx *ctx) {
+	struct http_header *host = get_header(ctx->req, "host");
+	if (!host) {
+		ctx->state = PS_ERROR;
+		return;
+	}
+	if (!ctx->req->host.ptr) {
+		ctx->req->host = host->value;
+	}
+	ctx->state = PS_DONE;
+	return;
+}
+
 /* expect request_bytes to be allocated up to (request_bytes+n) */
 enum parse_result feed(struct parse_ctx *ctx, const char *req_bytes, size_t n) {
 	enum parse_result res = PR_NEED_MORE;
@@ -803,6 +857,11 @@ enum parse_result feed(struct parse_ctx *ctx, const char *req_bytes, size_t n) {
 		if (res == PR_NEED_MORE) {
 			return PR_NEED_MORE;
 		}
+	}
+
+	if (res == PR_COMPLETE) {
+		assert(ctx->state == PS_DONE);
+		parse_host(ctx);
 	}
 
 	return res;

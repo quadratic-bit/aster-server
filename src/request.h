@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 struct slice {
 	const char *ptr;
@@ -80,6 +81,8 @@ struct http_request {
 
 	enum request_target_form target_form;
 	struct slice raw_target;
+	struct slice scheme, authority, host, path, query;
+	uint16_t port; /* 0 if unspecified */
 
 	struct http_header *headers;
 	size_t num_headers, cap_headers;
@@ -99,5 +102,9 @@ void append_empty_header(
 		struct http_request *req,
 		struct slice header_name
 );
+
+/* return pointer to the first header with the same (null-terminated) name,
+   NULL if didn't find any. case-sensitive (all lowercased) */
+struct http_header *get_header(struct http_request *req, const char *name);
 
 void strip_postfix_ows(struct slice *header_value);

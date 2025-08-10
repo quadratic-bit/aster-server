@@ -63,6 +63,20 @@ void append_empty_header(
 	req->headers[req->num_headers++] = new_header;
 }
 
+struct http_header *get_header(struct http_request *req, const char *name) {
+	size_t i;
+	size_t len;
+	const size_t target_len = strlen(name);
+	for (i = 0; i < req->num_headers; ++i) {
+		len = req->headers[i].name.len;
+		if (len == target_len &&
+				memcmp(name, req->headers[i].name.ptr, len)) {
+			return req->headers + i;
+		}
+	}
+	return NULL;
+}
+
 void strip_postfix_ows(struct slice *header_value) {
 	const char *end = header_value->ptr + header_value->len - 1;
 	while (*end == ' ' || *end == '\t') end--;

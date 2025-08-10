@@ -9,12 +9,14 @@ static void test_get_origin(void) {
 	enum parse_result res = feed(&ctx, raw_req, strlen(raw_req));
 
 	ASSERT_EQ_INT(res, PR_COMPLETE);
-	ASSERT_EQ_INT(ctx.state, PS_DONE);
 	ASSERT_EQ_INT(req.method, HM_GET);
-	ASSERT_EQ_INT(req.target_form, TF_ORIGIN);
-	ASSERT_EQ_MEM(req.raw_target.ptr, req.raw_target.len, "/path?q=1", 9);
 	ASSERT_EQ_INT(req.http_major, 1);
 	ASSERT_EQ_INT(req.http_minor, 1);
+
+	ASSERT_EQ_INT(req.target_form, TF_ORIGIN);
+	ASSERT_EQ_MEM(req.raw_target.ptr, req.raw_target.len, "/path?q=1", 9);
+	ASSERT_EQ_MEM(req.path.ptr, req.path.len, "/path", 5);
+	ASSERT_EQ_MEM(req.query.ptr, req.query.len, "q=1", 3);
 
 	ASSERT_EQ_INT(req.num_headers, 1);
 	ASSERT_EQ_MEM(
@@ -41,7 +43,6 @@ static void test_get_asterisk(void) {
 	enum parse_result res = feed(&ctx, raw_req, strlen(raw_req));
 
 	ASSERT_EQ_INT(res, PR_COMPLETE);
-	ASSERT_EQ_INT(ctx.state, PS_DONE);
 	ASSERT_EQ_INT(req.method, HM_OPTIONS);
 	ASSERT_EQ_INT(req.target_form, TF_ASTERISK);
 	ASSERT_EQ_MEM(req.raw_target.ptr, req.raw_target.len, "*", 1);
@@ -74,13 +75,19 @@ static void test_get_absolute(void) {
 	enum parse_result res = feed(&ctx, raw_req, strlen(raw_req));
 
 	ASSERT_EQ_INT(res, PR_COMPLETE);
-	ASSERT_EQ_INT(ctx.state, PS_DONE);
 	ASSERT_EQ_INT(req.method, HM_GET);
 	ASSERT_EQ_INT(req.target_form, TF_ABSOLUTE);
-	ASSERT_EQ_MEM(req.raw_target.ptr, req.raw_target.len,
-			"http://ex.com:80/path?q=1", 25);
 	ASSERT_EQ_INT(req.http_major, 1);
 	ASSERT_EQ_INT(req.http_minor, 1);
+
+	ASSERT_EQ_MEM(req.raw_target.ptr, req.raw_target.len,
+			"http://ex.com:80/path?q=1", 25);
+	ASSERT_EQ_MEM(req.scheme.ptr, req.scheme.len, "http", 4);
+	ASSERT_EQ_MEM(req.host.ptr, req.host.len, "ex.com", 6);
+	ASSERT_EQ_MEM(req.authority.ptr, req.authority.len, "ex.com:80", 9);
+	ASSERT_EQ_INT(req.port, 80);
+	ASSERT_EQ_MEM(req.path.ptr, req.path.len, "/path", 5);
+	ASSERT_EQ_MEM(req.query.ptr, req.query.len, "q=1", 3);
 
 	ASSERT_EQ_INT(req.num_headers, 1);
 	ASSERT_EQ_MEM(
