@@ -16,6 +16,10 @@ int slice_str_cmp(const struct slice *sl, const char *str) {
 	return memcmp(sl->ptr, str, sl->len);
 }
 
+void http_request_free(struct http_request *req) {
+	free(req->headers);
+}
+
 struct http_request new_request(void) {
 	struct http_request new_req = {0};
 

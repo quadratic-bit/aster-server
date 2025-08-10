@@ -30,6 +30,7 @@ static void test_get_origin(void) {
 	);
 
 	parse_ctx_free(&ctx);
+	http_request_free(&req);
 }
 
 static void test_get_asterisk(void) {
@@ -61,6 +62,7 @@ static void test_get_asterisk(void) {
 	);
 
 	parse_ctx_free(&ctx);
+	http_request_free(&req);
 }
 
 static void test_get_absolute(void) {
@@ -94,6 +96,7 @@ static void test_get_absolute(void) {
 	);
 
 	parse_ctx_free(&ctx);
+	http_request_free(&req);
 }
 
 int main(void) {

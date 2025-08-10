@@ -91,6 +91,8 @@ struct slice get_slice(const char *ptr, size_t len);
 
 int slice_str_cmp(const struct slice *sl, const char *str);
 
+void http_request_free(struct http_request *req);
+
 struct http_request new_request(void);
 
 void append_empty_header(
