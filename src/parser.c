@@ -91,6 +91,20 @@ static int is_obs_text(char ch) {
 	return uch >= 0x80;
 }
 
+/* return 1 and advance pos by 2 if valid pct-encoding, return 0 otherwise */
+static int consume_pct_enc(struct parse_ctx *ctx) {
+	assert(ctx->buf[ctx->pos] == '%');
+	if (ctx->pos + 2 >= ctx->len) {
+		return 0;
+	}
+	if (!is_hexdig(ctx->buf[ctx->pos + 1]) ||
+			!is_hexdig(ctx->buf[ctx->pos + 2])) {
+		return 0;
+	}
+	ctx->pos += 2;
+	return 1;
+}
+
 static enum parse_result parse_req_line_method(struct parse_ctx *ctx) {
 	enum http_method parsed_method;
 	char ch;
@@ -390,6 +404,10 @@ static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
 
 	case TF_ORIGIN:
 		while (ch == '/' || ch == '?' || is_pchar(ch)) {
+			if (ch == '%' && !consume_pct_enc(ctx)) {
+				ctx->state = PS_ERROR;
+				return PR_COMPLETE;
+			}
 			ctx->pos++;
 			if (ctx->pos >= ctx->len) return PR_NEED_MORE;
 			ch = ctx->buf[ctx->pos];
@@ -410,6 +428,10 @@ static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
 
 	case TF_UNK: /* TF_AUTHORITY or TF_ABSOLUTE */
 		while (ch == '/' || ch == '?' || is_pchar(ch)) {
+			if (ch == '%' && !consume_pct_enc(ctx)) {
+				ctx->state = PS_ERROR;
+				return PR_COMPLETE;
+			}
 			ctx->pos++;
 			if (ctx->pos >= ctx->len) return PR_NEED_MORE;
 			ch = ctx->buf[ctx->pos];
