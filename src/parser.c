@@ -434,8 +434,7 @@ pre_line_target_switch:
 		return PR_COMPLETE;
 
 	case TF_AUTHORITY:
-	case TF_ABSOLUTE:
-		break;
+	case TF_ABSOLUTE: assert(0);
 	}
 
 	return PR_COMPLETE;
