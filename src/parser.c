@@ -45,13 +45,6 @@ static void append_to_buf(struct parse_ctx *ctx, const char* data, size_t n) {
 	ctx->len += n;
 }
 
-/* request-line = method SP request-target SP HTTP-version
-   method = token
-   token = 1*tchar
-   tchar = "!" / "#" / "$" / "%" / "&" / "'" / "*"
-          / "+" / "-" / "." / "^" / "_" / "`" / "|" / "~"
-          / DIGIT / ALPHA */
-
 /* return 1 if vchar, 0 otherwise */
 static int is_vchar(char ch) {
 	return ch >= '!' && ch <= '~';
@@ -189,8 +182,7 @@ static int is_regchar(char ch) {
 	if (ch >= '$' && ch <= '.') {
 		return 1;
 	}
-	return ch == '_' || ch == '~' || ch == '!' ||
-		ch == ';' || ch == '=';
+	return ch == '_' || ch == '~' || ch == '!' || ch == ';' || ch == '=';
 }
 
 static void parse_asterisk_form(struct parse_ctx *ctx) {
@@ -209,11 +201,6 @@ static void parse_origin_form(struct parse_ctx *ctx) {
 	assert(ctx->req->target_form == TF_ORIGIN);
 	assert(ctx->req->raw_target.len > 0);
 	assert(ctx->req->raw_target.ptr[0] == '/');
-
-	/* origin-form   = absolute-path [ "?" query ] */
-	/* absolute-path = 1*( "/" segment ) */
-	/* segment       = *pchar */
-	/* query         = *( pchar / "/" / "?" ) */
 
 	/* absolute-path */
 	while (pos < target.len) {
@@ -253,11 +240,11 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 	assert(ctx->req->target_form == TF_UNK);
 
 	if (target.len < 8) {
-		ctx->state = PS_ERROR; /* TODO: decide on state */
+		ctx->state = PS_ERROR;
 		return;
 	}
 
-	if (memcmp(buf, "http://", 7)) {
+	if (memcmp(buf, "http://", 7)) { /* TODO: allow https */
 		ctx->state = PS_ERROR;
 		return;
 	}
@@ -265,13 +252,13 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 	pos += 7;
 	ctx->req->target_form = TF_ABSOLUTE;
 
-	if (buf[pos] == ':') { /* empty host */
+	if (buf[pos] == ':') { /* Empty host */
 		ctx->state = PS_ERROR;
 		return;
 	}
 
 	if (buf[pos] == '[') { /* IP-literal */
-		do {
+		do { /* TODO: parse IPv6 */
 			pos++;
 			if (pos >= target.len) {
 				ctx->state = PS_ERROR;
@@ -285,22 +272,22 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 		}
 		pos++;
 	} else {
-		while (is_regchar(buf[pos])) { /* assume reg-name host */
+		while (is_regchar(buf[pos])) { /* Assume reg-name host */
 			pos++;
 			if (pos >= target.len) {
 				ctx->state = PS_REQ_LINE_HTTP_NAME;
 				return;
 			}
 		}
-		if (buf[pos] == '@') { /* it was userinfo, reject */
+		if (buf[pos] == '@') { /* Userinfo is deprecated */
 			ctx->state = PS_ERROR;
 			return;
 		}
 	}
 
-	if (buf[pos] == ':') { /* port */
+	if (buf[pos] == ':') { /* Port */
 		pos++;
-		if (pos >= target.len) { /* empty port */
+		if (pos >= target.len) { /* Empty port */
 			ctx->state = PS_REQ_LINE_HTTP_NAME;
 			return;
 		}
@@ -313,10 +300,14 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 		}
 	}
 
-	if (buf[pos] != '/' && buf[pos] != '?') { /* see path-abempty */
+	/* path-abempty */
+
+	if (buf[pos] != '/' && buf[pos] != '?') {
 		ctx->state = PS_ERROR;
 		return;
 	}
+
+	/* /segments */
 
 	while (buf[pos] == '/' || is_pchar(buf[pos])) {
 		pos++;
@@ -325,6 +316,8 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 			return;
 		}
 	}
+
+	/* [ ?query ] */
 
 	if (buf[pos] != '?') {
 		ctx->state = PS_ERROR;
