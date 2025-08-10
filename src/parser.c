@@ -336,6 +336,18 @@ static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
 			return PR_COMPLETE;
 		}
 		ctx->mark = ctx->pos;
+		if (ch == '*') {
+			ctx->req->target_form = TF_ASTERISK;
+			ctx->pos++;
+			if (ctx->pos >= ctx->len) return PR_NEED_MORE;
+		} else if (ch == '/') {
+			ctx->req->target_form = TF_ORIGIN;
+			ctx->pos++;
+			if (ctx->pos >= ctx->len) return PR_NEED_MORE;
+		} else {
+			/* Should be TF_UNK by default */
+			ctx->req->target_form = TF_UNK;
+		}
 	} else if (ch == SYM_SP) {
 		ctx->req->raw_target = get_slice(
 			ctx->buf + ctx->mark,
@@ -359,11 +371,21 @@ static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
 		return PR_COMPLETE;
 	}
 
-pre_line_target_switch:
 	switch (ctx->req->target_form) {
-	case TF_ASTERISK: /* More than two characters in asterisk-form */
-		ctx->state = PS_ERROR;
+	case TF_ASTERISK:
+		ch = ctx->buf[ctx->pos];
+		if (ch != SYM_SP) { /* More symbols after initial '*' */
+			ctx->state = PS_ERROR;
+			ctx->mark = MARK_NONE;
+			return PR_COMPLETE;
+		}
+		ctx->req->raw_target = get_slice(
+			ctx->buf + ctx->mark,
+			ctx->pos - ctx->mark
+		);
 		ctx->mark = MARK_NONE;
+		ctx->pos++;
+		parse_asterisk_form(ctx);
 		return PR_COMPLETE;
 
 	case TF_ORIGIN:
@@ -386,34 +408,7 @@ pre_line_target_switch:
 		parse_origin_form(ctx);
 		return PR_COMPLETE;
 
-	case TF_UNK:
-		if (ch == '*') { /* asterisk-form or invalid */
-			ctx->req->target_form = TF_ASTERISK;
-			ctx->pos++;
-			if (ctx->pos >= ctx->len) return PR_NEED_MORE;
-			ch = ctx->buf[ctx->pos];
-			if (ch != SYM_SP) { /* More symbols after initial '*' */
-				ctx->state = PS_ERROR;
-				ctx->mark = MARK_NONE;
-				return PR_COMPLETE;
-			}
-			ctx->req->raw_target = get_slice(
-				ctx->buf + ctx->mark,
-				ctx->pos - ctx->mark
-			);
-			ctx->mark = MARK_NONE;
-			ctx->pos++;
-			parse_asterisk_form(ctx);
-			return PR_COMPLETE;
-		}
-		if (ch == '/') { /* origin-form or invalid */
-			ctx->req->target_form = TF_ORIGIN;
-			ctx->pos++;
-			if (ctx->pos >= ctx->len) return PR_NEED_MORE;
-			ch = ctx->buf[ctx->pos];
-			goto pre_line_target_switch;
-		}
-
+	case TF_UNK: /* TF_AUTHORITY or TF_ABSOLUTE */
 		while (ch == '/' || ch == '?' || is_pchar(ch)) {
 			ctx->pos++;
 			if (ctx->pos >= ctx->len) return PR_NEED_MORE;
