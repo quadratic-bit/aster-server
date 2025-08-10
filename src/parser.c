@@ -338,6 +338,9 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 			return;
 		}
 	} while (buf[pos] == '/' || buf[pos] == '?' || is_pchar(buf[pos]));
+
+	ctx->state = PS_ERROR;
+	return;
 }
 
 static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
