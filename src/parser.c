@@ -652,6 +652,11 @@ static enum parse_result parse_field_line_name(struct parse_ctx *ctx) {
 		return PR_COMPLETE;
 	}
 
+	if (ctx->pos == ctx->mark) { /* Empty header */
+		ctx->state = PS_ERROR;
+		return PR_COMPLETE;
+	}
+
 	field_name = get_slice(
 		ctx->buf + ctx->mark,
 		ctx->pos - ctx->mark
