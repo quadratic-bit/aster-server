@@ -12,8 +12,18 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <netdb.h>
+#include <assert.h>
+#include "parser.h"
 
 #define MAXDATASIZE 1024
+#define ENTITY "<!DOCTYPE html><html>" \
+		"<head><title>main</title></head>" \
+		"<body>hello</body>" \
+		"</html>"
+#define NOT_FOUND "<!DOCTYPE html><html>" \
+		"<head><title>not found</title></head>" \
+		"<body>not found</body>" \
+		"</html>"
 
 /*
  * ai_ for AddrInfo
@@ -115,21 +125,71 @@ static int bind_local_address(void) {
 
 static void handle_client(int client_fd) {
 	char buf[MAXDATASIZE];
-	const char *reply =
-		"HTTP/1.1 200 OK\r\n"
-		"Content-Length: 0\r\n"
-		"Connection: close\r\n"
-		"\r\n";
+
+	struct http_request req = new_request();
+	struct parse_ctx ctx = parse_ctx_init(&req);
+	enum parse_result res;
+
+	const char *reply;
 
 	ssize_t num_bytes = recv(client_fd, buf, MAXDATASIZE - 1, 0);
 	if (num_bytes == -1) {
 		perror("recv");
+		parse_ctx_free(&ctx);
+		http_request_free(&req);
 		exit(1);
 	}
 
-	buf[num_bytes] = '\0';
-	printf("server: message received, contents below\n%s\n", buf);
+	printf("request:\n%.*s\n", (int)num_bytes, buf);
+
+	while ((res = feed(&ctx, buf, (size_t)num_bytes)) != PR_COMPLETE) {
+		num_bytes = recv(client_fd, buf, MAXDATASIZE - 1, 0);
+		if (num_bytes == -1) {
+			perror("recv");
+			parse_ctx_free(&ctx);
+			http_request_free(&req);
+			exit(1);
+		}
+		if (num_bytes == 0) {
+			break;
+		}
+	}
+	if (res == PR_NEED_MORE) {
+		reply = "HTTP/1.1 400 Bad Request\r\n"
+			"Content-Length: 0\r\n"
+			"Connection: close\r\n";
+	} else if (ctx.state > PS_DONE) {
+		printf("bruh request is bad, state %d\n", ctx.state);
+		if (ctx.state == PS_PARSING_ERROR) {
+			reply = "HTTP/1.1 400 Bad Request\r\n"
+				"Content-Length: 0\r\n"
+				"Connection: close\r\n";
+		} else if (ctx.state == PS_UNSUPPORTED_METHOD) {
+			reply = "HTTP/1.1 501 Not Implemented\r\n"
+				"Content-Length: 0\r\n"
+				"Connection: close\r\n";
+		} else {
+			assert(0);
+		}
+	} else {
+		if (req.path.len == 1 && !slice_str_cmp(&req.path, "/")) {
+			reply = "HTTP/1.1 200 OK\r\n"
+				"Content-Length: 78\r\n"
+				"Connection: close\r\n"
+				"\r\n"
+				ENTITY;
+		} else {
+			reply = "HTTP/1.1 404 Not Found\r\n"
+				"Content-Length: 88\r\n"
+				"Connection: close\r\n"
+				"\r\n"
+				NOT_FOUND;
+		}
+	}
+
 	send(client_fd, reply, strlen(reply), 0);
+	parse_ctx_free(&ctx);
+	http_request_free(&req);
 }
 
 int main(void) {
