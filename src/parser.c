@@ -770,7 +770,8 @@ static enum parse_result parse_field_line_value(struct parse_ctx *ctx) {
 		ctx->mark = ctx->pos;
 	}
 
-	while (is_vchar(ch) || is_obs_text(ch)) {
+	while (is_vchar(ch) || is_obs_text(ch) ||
+			ch == SYM_SP || ch == SYM_HTAB) {
 		ctx->pos++;
 		if (ctx->pos >= ctx->len) return PR_NEED_MORE;
 		ch = ctx->buf[ctx->pos];
