@@ -404,10 +404,12 @@ static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
 		if (ch == '*') {
 			ctx->req->target_form = TF_ASTERISK;
 			ctx->pos++;
+			ch = ctx->buf[ctx->pos];
 			if (ctx->pos >= ctx->len) return PR_NEED_MORE;
 		} else if (ch == '/') {
 			ctx->req->target_form = TF_ORIGIN;
 			ctx->pos++;
+			ch = ctx->buf[ctx->pos];
 			if (ctx->pos >= ctx->len) return PR_NEED_MORE;
 		} else {
 			/* Should be TF_UNK by default */
@@ -438,7 +440,6 @@ static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
 
 	switch (ctx->req->target_form) {
 	case TF_ASTERISK:
-		ch = ctx->buf[ctx->pos];
 		if (ch != SYM_SP) { /* More symbols after initial '*' */
 			ctx->state = PS_PARSING_ERROR;
 			ctx->mark = MARK_NONE;
