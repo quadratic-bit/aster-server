@@ -61,7 +61,7 @@ enum http_method {
 	HM_POST,
 	HM_PUT,
 	HM_DELETE,
-	HM_CONNECT,
+/*	HM_CONNECT,	*/
 	HM_OPTIONS,
 	HM_TRACE
 };

@@ -23,7 +23,8 @@ enum parse_state {
 
 	PS_DONE,
 
-	PS_ERROR
+	PS_PARSING_ERROR,
+	PS_UNSUPPORTED_METHOD
 };
 
 enum parse_result {
