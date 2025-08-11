@@ -800,7 +800,7 @@ static enum parse_result parse_field_line_value(struct parse_ctx *ctx) {
 }
 
 static void parse_host(struct parse_ctx *ctx) {
-	struct http_header *host = get_header(ctx->req, "host");
+	struct http_header *host = get_header_by_type(ctx->req, HH_HOST);
 	if (!host) {
 		ctx->state = PS_PARSING_ERROR;
 		return;
