@@ -820,7 +820,7 @@ enum parse_result feed(struct parse_ctx *ctx, const char *req_bytes, size_t n) {
 
 	while (
 			ctx->pos < ctx->len &&
-			ctx->state < PS_PARSING_ERROR
+			ctx->state < PS_DONE
 	      ) {
 		switch (ctx->state) {
 		case PS_REQ_LINE_METHOD:
@@ -866,7 +866,7 @@ enum parse_result feed(struct parse_ctx *ctx, const char *req_bytes, size_t n) {
 	}
 
 	if (res == PR_COMPLETE) {
-		assert(ctx->state == PS_DONE);
+		if (ctx->state > PS_DONE) return res;
 		parse_host(ctx);
 	}
 
