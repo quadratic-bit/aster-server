@@ -91,6 +91,6 @@ struct http_header *get_header_by_type(struct http_request *req,
 void strip_postfix_ows(struct slice *header_value) {
 	const char *end = header_value->ptr + header_value->len - 1;
 	while (*end == ' ' || *end == '\t') end--;
-	assert(end > header_value->ptr);
+	assert(end >= header_value->ptr);
 	header_value->len = (size_t)(end - header_value->ptr + 1);
 }
