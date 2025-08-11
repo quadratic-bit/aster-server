@@ -70,7 +70,7 @@ struct http_header *get_header(struct http_request *req, const char *name) {
 	for (i = 0; i < req->num_headers; ++i) {
 		len = req->headers[i].name.len;
 		if (len == target_len &&
-				memcmp(name, req->headers[i].name.ptr, len)) {
+				!memcmp(name, req->headers[i].name.ptr, len)) {
 			return req->headers + i;
 		}
 	}
