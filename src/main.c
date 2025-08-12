@@ -160,11 +160,11 @@ static void handle_client(int client_fd) {
 			"Connection: close\r\n";
 	} else if (ctx.state > PS_DONE) {
 		printf("bruh request is bad, state %d\n", ctx.state);
-		if (ctx.state == PS_PARSING_ERROR) {
+		if (ctx.state == PS_ERROR) {
 			reply = "HTTP/1.1 400 Bad Request\r\n"
 				"Content-Length: 0\r\n"
 				"Connection: close\r\n";
-		} else if (ctx.state == PS_UNSUPPORTED_METHOD) {
+		} else if (req.method == HM_UNK) {
 			reply = "HTTP/1.1 501 Not Implemented\r\n"
 				"Content-Length: 0\r\n"
 				"Connection: close\r\n";

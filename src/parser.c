@@ -135,7 +135,7 @@ static enum parse_result parse_req_line_method(struct parse_ctx *ctx) {
 		ch = ctx->buf[ctx->pos];
 	}
 	if (ch != SYM_SP) {
-		ctx->state = PS_PARSING_ERROR;
+		ctx->state = PS_ERROR;
 		ctx->mark = MARK_NONE;
 		return PR_COMPLETE;
 	}
@@ -169,15 +169,9 @@ static enum parse_result parse_req_line_method(struct parse_ctx *ctx) {
 			parsed_method = HM_DELETE;
 		break;
 	case 7:
-		/* if (!slice_str_cmp(&method, "CONNECT"))
-			parsed_method = HM_CONNECT; */
 		if (!slice_str_cmp(&method, "OPTIONS"))
 			parsed_method = HM_OPTIONS;
 		break;
-	}
-	if (parsed_method == HM_UNK) {
-		ctx->state = PS_UNSUPPORTED_METHOD;
-		return PR_COMPLETE;
 	}
 	ctx->req->method = parsed_method;
 	ctx->state = PS_REQ_LINE_TARGET;
@@ -237,7 +231,7 @@ static void parse_origin_form(struct parse_ctx *ctx) {
 			break;
 		}
 		if (!is_pchar(buf[pos])) {
-			ctx->state = PS_PARSING_ERROR;
+			ctx->state = PS_ERROR;
 			return;
 		}
 		pos++;
@@ -263,12 +257,12 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 	assert(ctx->req->target_form == TF_UNK);
 
 	if (target.len < 8) {
-		ctx->state = PS_PARSING_ERROR;
+		ctx->state = PS_ERROR;
 		return;
 	}
 
 	if (memcmp(buf, "http://", 7)) { /* TODO: allow https */
-		ctx->state = PS_PARSING_ERROR;
+		ctx->state = PS_ERROR;
 		return;
 	}
 	ctx->req->scheme = get_slice(buf, 4);
@@ -277,7 +271,7 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 	ctx->req->target_form = TF_ABSOLUTE;
 
 	if (buf[pos] == ':') { /* Empty host */
-		ctx->state = PS_PARSING_ERROR;
+		ctx->state = PS_ERROR;
 		return;
 	}
 
@@ -286,13 +280,13 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 		do { /* TODO: parse IPv6 */
 			pos++;
 			if (pos >= target.len) {
-				ctx->state = PS_PARSING_ERROR;
+				ctx->state = PS_ERROR;
 				return;
 			}
 		} while (is_hexdig(buf[pos]) || buf[pos] == ':');
 
 		if (buf[pos] != ']') {
-			ctx->state = PS_PARSING_ERROR;
+			ctx->state = PS_ERROR;
 			return;
 		}
 		pos++;
@@ -314,7 +308,7 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 			}
 		}
 		if (buf[pos] == '@') { /* Userinfo is deprecated */
-			ctx->state = PS_PARSING_ERROR;
+			ctx->state = PS_ERROR;
 			return;
 		}
 	}
@@ -353,7 +347,7 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 	/* path-abempty */
 
 	if (buf[pos] != '/' && buf[pos] != '?') {
-		ctx->state = PS_PARSING_ERROR;
+		ctx->state = PS_ERROR;
 		return;
 	}
 
@@ -370,7 +364,7 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 	/* [ ?query ] */
 
 	if (buf[pos] != '?') {
-		ctx->state = PS_PARSING_ERROR;
+		ctx->state = PS_ERROR;
 		return;
 	}
 
@@ -385,7 +379,7 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 		return;
 	} while (buf[pos] == '/' || buf[pos] == '?' || is_pchar(buf[pos]));
 
-	ctx->state = PS_PARSING_ERROR;
+	ctx->state = PS_ERROR;
 	return;
 }
 
@@ -397,7 +391,7 @@ static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
 	if (ctx->mark == MARK_NONE) { /* First time into the function */
 		if (ch == SYM_SP) {
 			/* Two SP, reject for now, TODO: handle LWSP */
-			ctx->state = PS_PARSING_ERROR;
+			ctx->state = PS_ERROR;
 			return PR_COMPLETE;
 		}
 		ctx->mark = ctx->pos;
@@ -441,7 +435,7 @@ static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
 	switch (ctx->req->target_form) {
 	case TF_ASTERISK:
 		if (ch != SYM_SP) { /* More symbols after initial '*' */
-			ctx->state = PS_PARSING_ERROR;
+			ctx->state = PS_ERROR;
 			ctx->mark = MARK_NONE;
 			return PR_COMPLETE;
 		}
@@ -457,7 +451,7 @@ static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
 	case TF_ORIGIN:
 		while (ch == '/' || ch == '?' || is_pchar(ch)) {
 			if (ch == '%' && !consume_pct_enc(ctx)) {
-				ctx->state = PS_PARSING_ERROR;
+				ctx->state = PS_ERROR;
 				return PR_COMPLETE;
 			}
 			ctx->pos++;
@@ -465,7 +459,7 @@ static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
 			ch = ctx->buf[ctx->pos];
 		}
 		if (ch != SYM_SP) { /* Invalid character for origin-form */
-			ctx->state = PS_PARSING_ERROR;
+			ctx->state = PS_ERROR;
 			ctx->mark = MARK_NONE;
 			return PR_COMPLETE;
 		}
@@ -481,7 +475,7 @@ static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
 	case TF_UNK: /* TF_AUTHORITY or TF_ABSOLUTE */
 		while (ch == '/' || ch == '?' || is_pchar(ch)) {
 			if (ch == '%' && !consume_pct_enc(ctx)) {
-				ctx->state = PS_PARSING_ERROR;
+				ctx->state = PS_ERROR;
 				return PR_COMPLETE;
 			}
 			ctx->pos++;
@@ -489,7 +483,7 @@ static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
 			ch = ctx->buf[ctx->pos];
 		}
 		if (ch != SYM_SP) { /* Invalid character */
-			ctx->state = PS_PARSING_ERROR;
+			ctx->state = PS_ERROR;
 			ctx->mark = MARK_NONE;
 			return PR_COMPLETE;
 		}
@@ -515,7 +509,7 @@ static enum parse_result parse_req_line_http_name(struct parse_ctx *ctx) {
 	if (ctx->pos + 4 >= ctx->len) return PR_NEED_MORE;
 
 	if (memcmp(ctx->buf + ctx->pos, "HTTP/", 5)) {
-		ctx->state = PS_PARSING_ERROR;
+		ctx->state = PS_ERROR;
 		return PR_COMPLETE;
 	}
 	ctx->pos += 5;
@@ -528,7 +522,7 @@ static enum parse_result parse_req_line_http_major(struct parse_ctx *ctx) {
 	/*                          ^             */
 	char ch = ctx->buf[ctx->pos];
 	if (!is_digit(ch)) {
-		ctx->state = PS_PARSING_ERROR;
+		ctx->state = PS_ERROR;
 		return PR_COMPLETE;
 	}
 	ctx->req->http_major = to_digit(ch);
@@ -542,7 +536,7 @@ static enum parse_result parse_req_line_http_period(struct parse_ctx *ctx) {
 	/*                               ^        */
 	char ch = ctx->buf[ctx->pos];
 	if (ch != '.') {
-		ctx->state = PS_PARSING_ERROR;
+		ctx->state = PS_ERROR;
 		return PR_COMPLETE;
 	}
 	ctx->pos++;
@@ -555,7 +549,7 @@ static enum parse_result parse_req_line_http_minor(struct parse_ctx *ctx) {
 	/*                                    ^   */
 	char ch = ctx->buf[ctx->pos];
 	if (!is_digit(ch)) {
-		ctx->state = PS_PARSING_ERROR;
+		ctx->state = PS_ERROR;
 		return PR_COMPLETE;
 	}
 	ctx->req->http_minor = to_digit(ch);
@@ -568,7 +562,7 @@ static enum parse_result parse_req_line_crlf(struct parse_ctx *ctx) {
 	if (ctx->pos + 1 >= ctx->len) return PR_NEED_MORE;
 
 	if (memcmp(ctx->buf + ctx->pos, CRLF, 2)) {
-		ctx->state = PS_PARSING_ERROR;
+		ctx->state = PS_ERROR;
 		return PR_COMPLETE;
 	}
 	ctx->pos += 2;
@@ -701,7 +695,7 @@ static enum parse_result parse_field_line_name(struct parse_ctx *ctx) {
 			ctx->state = PS_DONE;
 			return PR_COMPLETE;
 		}
-		ctx->state = PS_PARSING_ERROR;
+		ctx->state = PS_ERROR;
 		return PR_COMPLETE;
 	}
 
@@ -716,12 +710,12 @@ static enum parse_result parse_field_line_name(struct parse_ctx *ctx) {
 	}
 
 	if (ch != ':') {
-		ctx->state = PS_PARSING_ERROR;
+		ctx->state = PS_ERROR;
 		return PR_COMPLETE;
 	}
 
 	if (ctx->pos == ctx->mark) { /* Empty header */
-		ctx->state = PS_PARSING_ERROR;
+		ctx->state = PS_ERROR;
 		return PR_COMPLETE;
 	}
 
@@ -764,7 +758,7 @@ static enum parse_result parse_field_line_value(struct parse_ctx *ctx) {
 
 	if (ctx->mark == MARK_NONE) {
 		if (ch == SYM_CR) { /* empty header value */
-			ctx->state = PS_PARSING_ERROR;
+			ctx->state = PS_ERROR;
 			return PR_COMPLETE;
 		}
 		ctx->mark = ctx->pos;
@@ -780,7 +774,7 @@ static enum parse_result parse_field_line_value(struct parse_ctx *ctx) {
 	if (ch == SYM_CR) {
 		if (ctx->pos + 1 >= ctx->len) return PR_NEED_MORE;
 		if (ctx->buf[ctx->pos + 1] != SYM_LF) {
-			ctx->state = PS_PARSING_ERROR;
+			ctx->state = PS_ERROR;
 			return PR_COMPLETE;
 		}
 		h_value = get_slice(
@@ -795,14 +789,14 @@ static enum parse_result parse_field_line_value(struct parse_ctx *ctx) {
 		return PR_COMPLETE;
 	}
 	ctx->mark = MARK_NONE;
-	ctx->state = PS_PARSING_ERROR;
+	ctx->state = PS_ERROR;
 	return PR_COMPLETE;
 }
 
 static void parse_host(struct parse_ctx *ctx) {
 	struct http_header *host = get_header_by_type(ctx->req, HH_HOST);
 	if (!host) {
-		ctx->state = PS_PARSING_ERROR;
+		ctx->state = PS_ERROR;
 		return;
 	}
 	if (!ctx->req->host.ptr) {
@@ -854,8 +848,7 @@ enum parse_result feed(struct parse_ctx *ctx, const char *req_bytes, size_t n) {
 			res = parse_field_line_value(ctx);
 			break;
 
-		case PS_PARSING_ERROR:
-		case PS_UNSUPPORTED_METHOD:
+		case PS_ERROR:
 		case PS_DONE:
 			break;
 		}
