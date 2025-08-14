@@ -58,7 +58,7 @@
 } while (0)
 
 #define ASSERT_EQ_HEADER(req, type, expect) do { \
-	struct http_header *_test_header = get_header_by_type(req, type); \
+	struct http_header *_test_header = get_header(req, type); \
 	if (!_test_header) { \
 		fprintf(stderr, \
 			"%s:%d: ASSERT_EQ_HEADER failed - no header with type (%d)\n", \
@@ -81,7 +81,7 @@
 } while (0)
 
 #define ASSERT_EQ_HEADER_NAME(req, name, expect) do { \
-	struct http_header *_test_header = get_header(req, name); \
+	struct http_header *_test_header = get_header_by_name(req, name); \
 	if (!_test_header) { \
 		fprintf(stderr, \
 			"%s:%d: ASSERT_EQ_HEADER failed - no header named \"%s\"\n", \

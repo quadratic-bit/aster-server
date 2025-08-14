@@ -63,7 +63,7 @@ void append_empty_header(
 	req->headers[req->num_headers++] = new_header;
 }
 
-struct http_header *get_header(struct http_request *req, const char *name) {
+struct http_header *get_header_by_name(struct http_request *req, const char *name) {
 	size_t i;
 	size_t len;
 	const size_t target_len = strlen(name);
@@ -77,7 +77,7 @@ struct http_header *get_header(struct http_request *req, const char *name) {
 	return NULL;
 }
 
-struct http_header *get_header_by_type(struct http_request *req,
+struct http_header *get_header(struct http_request *req,
 		enum http_header_type type) {
 	size_t i;
 	for (i = 0; i < req->num_headers; ++i) {

@@ -104,9 +104,9 @@ void append_empty_header(
 
 /* return pointer to the first header with the same (null-terminated) name,
    NULL if didn't find any. case-sensitive (all lowercased) */
-struct http_header *get_header(struct http_request *req, const char *name);
+struct http_header *get_header_by_name(struct http_request *req, const char *name);
 
 /* return pointer to the first header with the specified type, NULL if didn't find any */
-struct http_header *get_header_by_type(struct http_request *req, enum http_header_type type);
+struct http_header *get_header(struct http_request *req, enum http_header_type type);
 
 void strip_postfix_ows(struct slice *header_value);
