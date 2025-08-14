@@ -1,8 +1,9 @@
-#include "parser.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "parser.h"
+#include "str.h"
 
 /* expect http_request to be zeroed out */
 struct parse_ctx parse_ctx_init(struct http_request *req) {
@@ -45,45 +46,6 @@ static void append_to_buf(struct parse_ctx *ctx, const char* data, size_t n) {
 	ctx->len += n;
 }
 
-/* return 1 if vchar, 0 otherwise */
-static int is_vchar(char ch) {
-	return ch >= '!' && ch <= '~';
-}
-
-/* return 1 if ALPHA, 0 otherwise */
-static int is_alpha(char ch) {
-	return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
-}
-
-/* return 1 if DIGIT, 0 otherwise */
-static int is_digit(char ch) {
-	return ch >= '0' && ch <= '9';
-}
-
-/* return 1 if HEXDIG, 0 otherwise */
-static int is_hexdig(char ch) {
-	return is_digit(ch) || (
-		(ch >= 'a' && ch <= 'f') ||
-		(ch >= 'A' && ch <= 'F')
-	);
-}
-
-/* return 1 if tchar, 0 otherwise */
-static int is_tchar(char ch) {
-	if (is_alpha(ch) || is_digit(ch)) return 1;
-	if (!is_vchar(ch)) return 0;
-	return ch == '!' || ch == '#' || ch == '$' || ch == '%' ||
-		ch == '&' || ch == '\'' || ch == '*' || ch == '+' ||
-		ch == '-' || ch == '.' || ch == '^' || ch == '_' || ch == '`' ||
-		ch == '|' || ch == '~';
-}
-
-/* return 1 if obs-text, 0 otherwise */
-static int is_obs_text(char ch) {
-	unsigned char uch = (unsigned char)ch;
-	return uch >= 0x80;
-}
-
 /* return 1 and advance pos by 2 if valid pct-encoding, return 0 otherwise */
 static int consume_pct_enc(struct parse_ctx *ctx) {
 	assert(ctx->buf[ctx->pos] == '%');
@@ -96,20 +58,6 @@ static int consume_pct_enc(struct parse_ctx *ctx) {
 	}
 	ctx->pos += 2;
 	return 1;
-}
-
-/* if is ALPHA, lowercase */
-static char lower(char ch) {
-	if (ch >= 'A' && ch <= 'Z') {
-		return ch | 0x20;
-	}
-	return ch;
-}
-
-/* parse DIGIT into uint8_t */
-static uint8_t to_digit(char ch) {
-	assert(is_digit(ch));
-	return (uint8_t)((unsigned char)ch - 0x30);
 }
 
 static uint16_t parse_port(const char *buf, size_t len) {
@@ -176,29 +124,6 @@ static enum parse_result parse_req_line_method(struct parse_ctx *ctx) {
 	ctx->req->method = parsed_method;
 	ctx->state = PS_REQ_LINE_TARGET;
 	return PR_COMPLETE;
-}
-
-/* return 1 if pchar, 0 otherwise */
-static int is_pchar(char ch) {
-	if (is_alpha(ch) || is_digit(ch)) {
-		return 1;
-	}
-	if (ch >= '$' && ch <= '.') {
-		return 1;
-	}
-	return ch == '_' || ch == '~' || ch == ':' || ch == '@' || ch == '!' ||
-		ch == ';' || ch == '=';
-}
-
-/* return 1 if allowed reg-name char, 0 otherwise */
-static int is_regchar(char ch) {
-	if (is_alpha(ch) || is_digit(ch)) {
-		return 1;
-	}
-	if (ch >= '$' && ch <= '.') {
-		return 1;
-	}
-	return ch == '_' || ch == '~' || ch == '!' || ch == ';' || ch == '=';
 }
 
 static void parse_asterisk_form(struct parse_ctx *ctx) {

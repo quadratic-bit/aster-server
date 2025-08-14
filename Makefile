@@ -23,18 +23,18 @@ CFLAGS_RELEASE := -std=c89 -pedantic-errors -O2 \
 
 .PHONY: clean test release
 
-bin/server: bin src/main.c
-	$(CC) $(CFLAGS_DEBUG) src/main.c src/parser.c src/request.c -o bin/server
+bin/server: bin src/main.c src/parser.* src/request.* src/str.*
+	$(CC) $(CFLAGS_DEBUG) src/main.c src/parser.c src/request.c src/str.c -o bin/server
 
-release: bin src/main.c
-	$(CC) $(CFLAGS_RELEASE) src/main.c -o bin/server
+bin/release: bin src/main.c src/parser.* src/request.* src/str.*
+	$(CC) $(CFLAGS_RELEASE) src/main.c src/parser.c src/request.c src/str.c -o bin/server
 
 bin:
 	mkdir -p bin
 
 test: bin/test
 
-bin/test: src/test_parser.c src/parser.c src/request.c
+bin/test: src/test.h src/test_parser.c src/parser.* src/request.* src/str.*
 	$(CC) -std=c89 -pedantic-errors $^ -o $@
 	./$@
 	rm -f ./$@
