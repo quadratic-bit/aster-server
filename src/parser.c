@@ -60,6 +60,7 @@ static int consume_pct_enc(struct parse_ctx *ctx) {
 	return 1;
 }
 
+/* TODO: handle overflow */
 static uint16_t parse_port(const char *buf, size_t len) {
 	uint16_t port = 0;
 	uint16_t power = 1;
@@ -68,6 +69,17 @@ static uint16_t parse_port(const char *buf, size_t len) {
 		port += (uint16_t)(to_digit(buf[len - pos - 1]) * power);
 	}
 	return port;
+}
+
+/* TODO: handle overflow */
+static size_t parse_size_t(const char *buf, size_t len) {
+	size_t value = 0;
+	size_t power = 1;
+	size_t pos;
+	for (pos = 0; pos < len; ++pos, power *= 10) {
+		value += (uint16_t)(to_digit(buf[len - pos - 1]) * power);
+	}
+	return value;
 }
 
 static enum parse_result parse_req_line_method(struct parse_ctx *ctx) {
@@ -617,7 +629,7 @@ static enum parse_result parse_field_line_name(struct parse_ctx *ctx) {
 		if (ctx->pos + 1 >= ctx->len) return PR_NEED_MORE;
 		if (ctx->buf[ctx->pos + 1] == SYM_LF) {
 			ctx->pos += 2;
-			ctx->state = PS_DONE;
+			ctx->state = PS_HOST;
 			return PR_COMPLETE;
 		}
 		ctx->state = PS_ERROR;
@@ -718,17 +730,75 @@ static enum parse_result parse_field_line_value(struct parse_ctx *ctx) {
 	return PR_COMPLETE;
 }
 
-static void parse_host(struct parse_ctx *ctx) {
+static enum parse_result parse_host(struct parse_ctx *ctx) {
 	struct http_header *host = get_header(ctx->req, HH_HOST);
 	if (!host) {
 		ctx->state = PS_ERROR;
-		return;
+		return PR_COMPLETE;
 	}
 	if (!ctx->req->host.ptr) {
 		ctx->req->host = host->value;
 	}
+	ctx->state = PS_FRAMING;
+	return PR_COMPLETE;
+}
+
+static enum parse_result parse_framing(struct parse_ctx *ctx) {
+	struct http_header *cl = get_header(ctx->req, HH_CONTENT_LENGTH);
+	struct http_header *te = get_header(ctx->req, HH_TRANSFER_ENCODING);
+	size_t i;
+
+	if (te) {
+		if (cl) {
+			/* Prevent potential smuggling */
+			ctx->state = PS_ERROR;
+			return PR_COMPLETE;
+		}
+		if (is_http_ver(ctx->req, 1, 0)) {
+			/* RFC 9112 explicitly states to reject */
+			ctx->state = PS_ERROR;
+			return PR_COMPLETE;
+		}
+		if (!slice_str_cmp_ci(&te->value, "chunked")) {
+			ctx->req->te_chunked = 1;
+			ctx->req->content_length = -1;
+		} else {
+			/* TODO: handle other two and a half transfer codings */
+			ctx->state = PS_ERROR;
+			return PR_COMPLETE;
+		}
+	} else if (cl) {
+		for (i = 0; i < cl->value.len; ++i) {
+			if (is_digit(cl->value.ptr[i])) continue;
+			ctx->state = PS_ERROR;
+			return PR_COMPLETE;
+		}
+		/* TODO: unsafe conversion */
+		ctx->req->content_length = (ssize_t)parse_size_t(
+			cl->value.ptr,
+			cl->value.len
+		);
+	} else {
+		ctx->req->content_length = 0;
+	}
+	ctx->state = PS_CONNECTION;
+	return PR_COMPLETE;
+}
+
+static enum parse_result parse_connection(struct parse_ctx *ctx) {
+	struct http_header *con = get_header(ctx->req, HH_CONNECTION);
+	if (con) {
+		if (slice_str_cmp_ci(&con->value, "close")) {
+			ctx->req->keep_alive = 0;
+		} else if (slice_str_cmp_ci(&con->value, "upgrade")) {
+			/* TODO: parse_upgrade() */
+			ctx->req->upgrade = 1;
+		}
+	} else {
+		ctx->req->keep_alive = 1;
+	}
 	ctx->state = PS_DONE;
-	return;
+	return PR_COMPLETE;
 }
 
 /* expect request_bytes to be allocated up to (request_bytes+n) */
@@ -772,6 +842,15 @@ enum parse_result feed(struct parse_ctx *ctx, const char *req_bytes, size_t n) {
 		case PS_FIELD_LINE_VALUE:
 			res = parse_field_line_value(ctx);
 			break;
+		case PS_HOST:
+			res = parse_host(ctx);
+			break;
+		case PS_FRAMING:
+			res = parse_framing(ctx);
+			break;
+		case PS_CONNECTION:
+			res = parse_connection(ctx);
+			break;
 
 		case PS_ERROR:
 		case PS_DONE:
@@ -781,11 +860,6 @@ enum parse_result feed(struct parse_ctx *ctx, const char *req_bytes, size_t n) {
 		if (res == PR_NEED_MORE) {
 			return PR_NEED_MORE;
 		}
-	}
-
-	if (res == PR_COMPLETE) {
-		if (ctx->state > PS_DONE) return res;
-		parse_host(ctx);
 	}
 
 	return res;

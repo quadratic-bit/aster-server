@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/types.h>
 
 struct slice {
 	const char *ptr;
@@ -48,6 +49,7 @@ enum http_header_type {
 	HH_WARNING
 };
 
+/* Support CSV */
 struct http_header {
 	struct slice name;
 	struct slice value;
@@ -86,12 +88,20 @@ struct http_request {
 	struct http_header *headers;
 	size_t num_headers, cap_headers;
 
+	unsigned te_chunked:1;
+	unsigned keep_alive:1;
+	unsigned expect_100:1;
+	unsigned upgrade:1;
+
+	ssize_t content_length; /* -1 if unknown */
+
 	void *body_ctx;
 };
 
 struct slice get_slice(const char *ptr, size_t len);
 
 int slice_str_cmp(const struct slice *sl, const char *str);
+int slice_str_cmp_ci(const struct slice *sl, const char *str);
 
 void http_request_free(struct http_request *req);
 
@@ -110,3 +120,6 @@ struct http_header *get_header_by_name(struct http_request *req, const char *nam
 struct http_header *get_header(struct http_request *req, enum http_header_type type);
 
 void strip_postfix_ows(struct slice *header_value);
+
+/* return 1 if http versions match, 0 otherwise */
+int is_http_ver(struct http_request *req, uint8_t major, uint8_t minor);

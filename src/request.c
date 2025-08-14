@@ -1,4 +1,5 @@
 #include "request.h"
+#include "str.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +15,17 @@ struct slice get_slice(const char *ptr, size_t len) {
 int slice_str_cmp(const struct slice *sl, const char *str) {
 	assert(sl->len == strlen(str));
 	return memcmp(sl->ptr, str, sl->len);
+}
+
+int slice_str_cmp_ci(const struct slice *sl, const char *str) {
+	size_t pos = 0;
+
+	assert(sl->len == strlen(str));
+	for (; pos < sl->len; ++pos) {
+		int diff = lower(sl->ptr[pos]) - lower(str[pos]);
+		if (diff != 0) return diff;
+	}
+	return 0;
 }
 
 void http_request_free(struct http_request *req) {
@@ -93,4 +105,8 @@ void strip_postfix_ows(struct slice *header_value) {
 	while (*end == ' ' || *end == '\t') end--;
 	assert(end >= header_value->ptr);
 	header_value->len = (size_t)(end - header_value->ptr + 1);
+}
+
+int is_http_ver(struct http_request *req, uint8_t major, uint8_t minor) {
+	return req->http_major == major && req->http_minor == minor;
 }
