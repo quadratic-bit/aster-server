@@ -77,7 +77,7 @@ static size_t parse_size_t(const char *buf, size_t len) {
 	size_t power = 1;
 	size_t pos;
 	for (pos = 0; pos < len; ++pos, power *= 10) {
-		value += (uint16_t)(to_digit(buf[len - pos - 1]) * power);
+		value += (size_t)(to_digit(buf[len - pos - 1]) * power);
 	}
 	return value;
 }
