@@ -198,13 +198,17 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 		return;
 	}
 
-	if (memcmp(buf, "http://", 7)) { /* TODO: allow https */
+	if (!memcmp(buf, "http://", 7)) {
+		ctx->req->scheme = get_slice(buf, 4);
+		pos += 7;
+	} else if (!memcmp(buf, "https://", 8)) {
+		ctx->req->scheme = get_slice(buf, 5);
+		pos += 8;
+	} else {
 		ctx->state = PS_ERROR;
 		return;
 	}
-	ctx->req->scheme = get_slice(buf, 4);
 
-	pos += 7;
 	ctx->req->target_form = TF_ABSOLUTE;
 
 	if (buf[pos] == ':') { /* Empty host */
