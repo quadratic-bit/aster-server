@@ -47,12 +47,12 @@
 #define ASSERT_EQ_SLICE(slice, str) do { \
 	if (slice.len != strlen(str) || memcmp(slice.ptr, (str), slice.len)) { \
 		fprintf(stderr, \
-			"%s:%d: ASSERT_EQ_SLICE failed (expected \"%.*s\", got \"%s\")\n", \
+			"%s:%d: ASSERT_EQ_SLICE failed (expected \"%s\", got \"%.*s\")\n", \
 			__FILE__, \
 			__LINE__, \
+			(const char*)(str), \
 			(int)(slice.len), \
-			(const char*)(slice.ptr), \
-			(const char*)(str)); \
+			(const char*)(slice.ptr)); \
 		exit(1); \
 	} \
 } while (0)
@@ -70,12 +70,12 @@
 	if (_test_header->value.len != strlen(expect) || \
 			memcmp(_test_header->value.ptr, (expect), _test_header->value.len)) { \
 		fprintf(stderr, \
-			"%s:%d: ASSERT_EQ_HEADER failed (expected \"%.*s\", got \"%s\")\n", \
+			"%s:%d: ASSERT_EQ_HEADER failed (expected \"%s\", got \"%.*s\")\n", \
 			__FILE__, \
 			__LINE__, \
+			(const char*)(expect), \
 			(int)(_test_header->value.len), \
-			(const char*)(_test_header->value.ptr), \
-			(const char*)(expect)); \
+			(const char*)(_test_header->value.ptr)); \
 		exit(1); \
 	} \
 } while (0)
@@ -96,9 +96,9 @@
 			"%s:%d: ASSERT_EQ_HEADER failed (expected \"%.*s\", got \"%s\")\n", \
 			__FILE__, \
 			__LINE__, \
+			(const char*)(expect), \
 			(int)(_test_header->value.len), \
-			(const char*)(_test_header->value.ptr), \
-			(const char*)(expect)); \
+			(const char*)(_test_header->value.ptr)); \
 		exit(1); \
 	} \
 } while (0)
