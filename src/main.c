@@ -155,34 +155,34 @@ static void handle_client(int client_fd) {
 		}
 	}
 	if (res == PR_NEED_MORE) {
-		reply = "HTTP/1.1 400 Bad Request\r\n"
-			"Content-Length: 0\r\n"
-			"Connection: close\r\n";
+		reply = "HTTP/1.1 400 Bad Request" CRLF
+			"Content-Length: 0" CRLF
+			"Connection: close" CRLF CRLF;
 	} else if (ctx.state > PS_DONE) {
 		printf("bruh request is bad, state %d\n", ctx.state);
 		if (ctx.state == PS_ERROR) {
-			reply = "HTTP/1.1 400 Bad Request\r\n"
-				"Content-Length: 0\r\n"
-				"Connection: close\r\n";
+			reply = "HTTP/1.1 400 Bad Request" CRLF
+				"Content-Length: 0" CRLF
+				"Connection: close" CRLF CRLF;
 		} else if (req.method == HM_UNK) {
-			reply = "HTTP/1.1 501 Not Implemented\r\n"
-				"Content-Length: 0\r\n"
-				"Connection: close\r\n";
+			reply = "HTTP/1.1 501 Not Implemented" CRLF
+				"Content-Length: 0" CRLF
+				"Connection: close" CRLF CRLF;
 		} else {
 			assert(0);
 		}
 	} else {
 		if (req.path.len == 1 && !slice_str_cmp(&req.path, "/")) {
-			reply = "HTTP/1.1 200 OK\r\n"
-				"Content-Length: 78\r\n"
-				"Connection: close\r\n"
-				"\r\n"
+			reply = "HTTP/1.1 200 OK" CRLF
+				"Content-Length: 78" CRLF
+				"Connection: close" CRLF
+				CRLF
 				ENTITY;
 		} else {
-			reply = "HTTP/1.1 404 Not Found\r\n"
-				"Content-Length: 88\r\n"
-				"Connection: close\r\n"
-				"\r\n"
+			reply = "HTTP/1.1 404 Not Found" CRLF
+				"Content-Length: 88" CRLF
+				"Connection: close" CRLF
+				CRLF
 				NOT_FOUND;
 		}
 	}
