@@ -797,9 +797,9 @@ static enum parse_result parse_framing(struct parse_ctx *ctx) {
 static enum parse_result parse_connection(struct parse_ctx *ctx) {
 	struct http_header *con = get_header(ctx->req, HH_CONNECTION);
 	if (con) {
-		if (slice_str_cmp_ci(&con->value, "close")) {
+		if (!slice_str_cmp_ci(&con->value, "close")) {
 			ctx->req->keep_alive = 0;
-		} else if (slice_str_cmp_ci(&con->value, "upgrade")) {
+		} else if (!slice_str_cmp_ci(&con->value, "upgrade")) {
 			/* TODO: parse_upgrade() */
 			ctx->req->upgrade = 1;
 		}
