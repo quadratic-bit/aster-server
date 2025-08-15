@@ -245,6 +245,7 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 					buf + mark,
 					pos - mark
 				);
+				ctx->req->authority = ctx->req->host;
 				return;
 			}
 		}
@@ -260,6 +261,7 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 		pos++;
 		mark = pos;
 		if (pos >= target.len) { /* Empty port */
+			ctx->req->authority = ctx->req->host;
 			ctx->state = PS_REQ_LINE_HTTP_NAME;
 			return;
 		}
@@ -283,6 +285,8 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 			ctx->req->host.ptr,
 			pos - mark + ctx->req->host.len + 1
 		);
+	} else {
+		ctx->req->authority = ctx->req->host;
 	}
 
 	/* path-abempty */
@@ -296,6 +300,7 @@ static void parse_absolute_form(struct parse_ctx *ctx) {
 	while (buf[pos] == '/' || is_pchar(buf[pos])) {
 		pos++;
 		if (pos >= target.len) {
+			ctx->req->path = get_slice(buf + mark, pos - mark);
 			ctx->state = PS_REQ_LINE_HTTP_NAME;
 			return;
 		}
