@@ -18,6 +18,7 @@
 #include "datetime.h"
 
 #define MAXDATASIZE 1024
+#define SERVER "aster/0.0.0-alpha"
 #define ENTITY "<!DOCTYPE html><html>" \
 		"<head><title>main</title></head>" \
 		"<body>hello</body>" \
@@ -161,6 +162,7 @@ static void handle_client(int client_fd) {
 	if (res == PR_NEED_MORE) {
 		append_to_response(&reply,
 			"HTTP/1.1 400 Bad Request" CRLF
+			"Server: " SERVER CRLF
 			"Content-Length: 0" CRLF
 			"Connection: close" CRLF
 			"Date: ");
@@ -171,6 +173,7 @@ static void handle_client(int client_fd) {
 		if (ctx.state == PS_ERROR) {
 			append_to_response(&reply,
 				"HTTP/1.1 400 Bad Request" CRLF
+				"Server: " SERVER CRLF
 				"Content-Length: 0" CRLF
 				"Connection: close" CRLF
 				"Date: ");
@@ -180,6 +183,7 @@ static void handle_client(int client_fd) {
 		} else if (req.method == HM_UNK) {
 			append_to_response(&reply,
 				"HTTP/1.1 501 Not Implemented" CRLF
+				"Server: " SERVER CRLF
 				"Content-Length: 0" CRLF
 				"Connection: close" CRLF
 				"Date: ");
@@ -193,6 +197,7 @@ static void handle_client(int client_fd) {
 		if (req.path.len == 1 && !slice_str_cmp(&req.path, "/")) {
 			append_to_response(&reply,
 				"HTTP/1.1 200 OK" CRLF
+				"Server: " SERVER CRLF
 				"Content-Length: 78" CRLF
 				"Connection: close" CRLF
 				"Date: ");
@@ -203,6 +208,7 @@ static void handle_client(int client_fd) {
 		} else {
 			append_to_response(&reply,
 				"HTTP/1.1 404 Not Found" CRLF
+				"Server: " SERVER CRLF
 				"Content-Length: 88" CRLF
 				"Connection: close" CRLF
 				"Date: ");
