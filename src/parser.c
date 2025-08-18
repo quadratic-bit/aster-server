@@ -793,6 +793,7 @@ static void parse_framing(struct parse_ctx *ctx) {
 
 static void parse_connection(struct parse_ctx *ctx) {
 	struct http_header *con = get_header(ctx->req, HH_CONNECTION);
+	ctx->req->keep_alive = 1;
 	if (con) {
 		if (con->value.len == 5 &&
 				!slice_str_cmp_ci(&con->value, "close")) {
@@ -802,8 +803,6 @@ static void parse_connection(struct parse_ctx *ctx) {
 			/* TODO: parse_upgrade() */
 			ctx->req->upgrade = 1;
 		}
-	} else {
-		ctx->req->keep_alive = 1;
 	}
 }
 
