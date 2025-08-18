@@ -11,12 +11,61 @@
 #define HOST(value) H("Host", value)
 #define END CRLF
 
-#define RUN_TEST(fn)				\
-	do {					\
-		fprintf(stderr, "%s: ", #fn);	\
-		fn();				\
-		fprintf(stderr, "OK\n");	\
+#define SETUP_TEST(raw_req, req, ctx, res) \
+	struct http_request req = new_request(); \
+	struct parse_ctx ctx = parse_ctx_init(&req); \
+	enum parse_result res = feed(&ctx, raw_req, strlen(raw_req)); \
+
+#define END_TEST(ctx, req) \
+	parse_ctx_free(&ctx); \
+	http_request_free(&req); \
+
+#define RUN_TEST(fn) \
+	do { \
+		fprintf(stderr, "%s: ", #fn); \
+		fn(); \
+		fprintf(stderr, "OK\n"); \
 	} while (0)
+
+#define ASSERT_DONE(ctx, res) do { \
+	if ((res) != (PR_COMPLETE)) { \
+		fprintf(stderr, \
+			"%s:%d: ASSERT_DONE(%s) parsing didn't finish\n", \
+			__FILE__, \
+			__LINE__, \
+			#res); \
+		exit(1); \
+	} \
+	if ((ctx.state) != (PS_DONE)) { \
+		fprintf(stderr, \
+			"%s:%d: ASSERT_DONE(%s) parsing didn't succeed, got %d\n", \
+			__FILE__, \
+			__LINE__, \
+			#res, \
+			(int)(ctx.state)); \
+		exit(1); \
+	} \
+} while (0)
+
+#define ASSERT_ERROR(res) do { \
+	if ((res) != (PR_COMPLETE)) { \
+		fprintf(stderr, \
+			"%s:%d: ASSERT_ERROR(%s) parsing didn't finish\n", \
+			__FILE__, \
+			__LINE__, \
+			#res); \
+		exit(1); \
+	} \
+	if ((ctx.state) != (PS_ERROR)) { \
+		fprintf(stderr, \
+			"%s:%d: ASSERT_ERROR(%s) parsing didn't error, got %d\n", \
+			__FILE__, \
+			__LINE__, \
+			#res, \
+			(int)(ctx.state)); \
+		exit(1); \
+	} \
+} while (0)
 
 #define ASSERT_EQ_INT(a, b) do { \
 	if ((a) != (b)) { \
@@ -51,6 +100,18 @@
 			__FILE__, \
 			__LINE__, \
 			(const char*)(str), \
+			(int)(slice.len), \
+			(const char*)(slice.ptr)); \
+		exit(1); \
+	} \
+} while (0)
+
+#define ASSERT_SLICE_UNSET(slice) do { \
+	if (slice.len != 0 || slice.ptr != NULL) { \
+		fprintf(stderr, \
+			"%s:%d: ASSERT_SLICE_UNSET failed (got \"%.*s\")\n", \
+			__FILE__, \
+			__LINE__, \
 			(int)(slice.len), \
 			(const char*)(slice.ptr)); \
 		exit(1); \
