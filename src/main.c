@@ -14,6 +14,8 @@
 #include <netdb.h>
 #include <assert.h>
 #include "parser.h"
+#include "response.h"
+#include "datetime.h"
 
 #define MAXDATASIZE 1024
 #define ENTITY "<!DOCTYPE html><html>" \
@@ -130,7 +132,8 @@ static void handle_client(int client_fd) {
 	struct parse_ctx ctx = parse_ctx_init(&req);
 	enum parse_result res;
 
-	const char *reply;
+	struct http_response reply = new_response();
+	char datetime[30] = {0};
 
 	ssize_t num_bytes = recv(client_fd, buf, MAXDATASIZE - 1, 0);
 	if (num_bytes == -1) {
@@ -154,42 +157,66 @@ static void handle_client(int client_fd) {
 			break;
 		}
 	}
+	get_current_time(datetime);
 	if (res == PR_NEED_MORE) {
-		reply = "HTTP/1.1 400 Bad Request" CRLF
+		append_to_response(&reply,
+			"HTTP/1.1 400 Bad Request" CRLF
 			"Content-Length: 0" CRLF
-			"Connection: close" CRLF CRLF;
+			"Connection: close" CRLF
+			"Date: ");
+		append_to_response(&reply, datetime);
+		append_to_response(&reply,
+			CRLF CRLF);
 	} else if (ctx.state > PS_DONE) {
-		printf("bruh request is bad, state %d\n", ctx.state);
 		if (ctx.state == PS_ERROR) {
-			reply = "HTTP/1.1 400 Bad Request" CRLF
+			append_to_response(&reply,
+				"HTTP/1.1 400 Bad Request" CRLF
 				"Content-Length: 0" CRLF
-				"Connection: close" CRLF CRLF;
+				"Connection: close" CRLF
+				"Date: ");
+			append_to_response(&reply, datetime);
+			append_to_response(&reply,
+				CRLF CRLF);
 		} else if (req.method == HM_UNK) {
-			reply = "HTTP/1.1 501 Not Implemented" CRLF
+			append_to_response(&reply,
+				"HTTP/1.1 501 Not Implemented" CRLF
 				"Content-Length: 0" CRLF
-				"Connection: close" CRLF CRLF;
+				"Connection: close" CRLF
+				"Date: ");
+			append_to_response(&reply, datetime);
+			append_to_response(&reply,
+				CRLF CRLF);
 		} else {
 			assert(0);
 		}
 	} else {
 		if (req.path.len == 1 && !slice_str_cmp(&req.path, "/")) {
-			reply = "HTTP/1.1 200 OK" CRLF
+			append_to_response(&reply,
+				"HTTP/1.1 200 OK" CRLF
 				"Content-Length: 78" CRLF
 				"Connection: close" CRLF
-				CRLF
-				ENTITY;
+				"Date: ");
+			append_to_response(&reply, datetime);
+			append_to_response(&reply,
+				CRLF CRLF
+				ENTITY);
 		} else {
-			reply = "HTTP/1.1 404 Not Found" CRLF
+			append_to_response(&reply,
+				"HTTP/1.1 404 Not Found" CRLF
 				"Content-Length: 88" CRLF
 				"Connection: close" CRLF
-				CRLF
-				NOT_FOUND;
+				"Date: ");
+			append_to_response(&reply, datetime);
+			append_to_response(&reply,
+				CRLF CRLF
+				NOT_FOUND);
 		}
 	}
 
-	send(client_fd, reply, strlen(reply), 0);
+	send(client_fd, reply.buf, reply.len, 0);
 	parse_ctx_free(&ctx);
 	http_request_free(&req);
+	http_response_free(&reply);
 }
 
 int main(void) {

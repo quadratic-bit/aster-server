@@ -23,18 +23,18 @@ CFLAGS_RELEASE := -std=c89 -pedantic-errors -O2 \
 
 .PHONY: clean test release
 
-bin/server: bin src/main.c src/parser.* src/request.* src/str.*
-	$(CC) $(CFLAGS_DEBUG) src/main.c src/parser.c src/request.c src/str.c -o bin/server
+bin/server: bin src/main.c src/parser.* src/request.* src/str.* src/response.* src/datetime.*
+	$(CC) $(CFLAGS_DEBUG) src/main.c src/parser.c src/request.c src/str.c src/response.c src/datetime.c -o bin/server
 
-bin/release: bin src/main.c src/parser.* src/request.* src/str.*
-	$(CC) $(CFLAGS_RELEASE) src/main.c src/parser.c src/request.c src/str.c -o bin/server
+bin/release: bin src/main.c src/parser.* src/request.* src/str.* src/response.* src/datetime.*
+	$(CC) $(CFLAGS_RELEASE) src/main.c src/parser.c src/request.c src/str.c src/response.c src/datetime.c -o bin/server
 
 bin:
 	mkdir -p bin
 
 test: bin/test
 
-bin/test: src/test.h src/test_parser.c src/parser.* src/request.* src/str.*
+bin/test: src/test.h src/test_parser.c src/parser.* src/request.* src/str.* src/response.* src/datetime.*
 	$(CC) -std=c89 -pedantic-errors $^ -o $@
 	./$@
 	rm -f ./$@
