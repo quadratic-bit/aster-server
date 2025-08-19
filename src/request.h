@@ -46,14 +46,22 @@ enum http_header_type {
 	HH_USER_AGENT,
 	HH_VARY,
 	HH_VIA,
-	HH_WARNING
+	HH_WARNING,
+	HH__COUNT
 };
 
-/* Support CSV */
 struct http_header {
 	struct slice name;
 	struct slice value;
 	enum http_header_type type;
+	size_t next_same_type; /* index into headers array or SIZE_MAX */
+};
+
+/* use `http_header_type` as indices */
+struct field_index {
+	size_t heads[HH__COUNT]; /* first entrance of field type or SIZE_MAX */
+	size_t tails[HH__COUNT]; /* last entrance of field type or SIZE_MAX */
+	size_t count[HH__COUNT]; /* count of entrances of such type */
 };
 
 enum http_method {
@@ -86,6 +94,7 @@ struct http_request {
 	uint16_t port; /* 0 if unspecified */
 
 	struct http_header *headers;
+	struct field_index *h_index; /* index into headers */
 	size_t num_headers, cap_headers;
 
 	unsigned te_chunked:1;

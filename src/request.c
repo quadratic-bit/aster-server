@@ -1,9 +1,9 @@
-#include "request.h"
-#include "str.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "request.h"
+#include "str.h"
 
 struct slice get_slice(const char *ptr, size_t len) {
 	struct slice new_slice;
@@ -30,6 +30,7 @@ int slice_str_cmp_ci(const struct slice *sl, const char *str) {
 
 void http_request_free(struct http_request *req) {
 	free(req->headers);
+	free(req->h_index);
 }
 
 struct http_request new_request(void) {
@@ -46,13 +47,21 @@ struct http_request new_request(void) {
 		exit(1);
 	}
 
+	new_req.h_index = malloc(sizeof(struct field_index));
+	if (new_req.h_index == NULL) {
+		free(new_req.headers);
+		perror("new_request");
+		exit(1);
+	}
+
+	memset(new_req.h_index->heads, 0xFF, HH__COUNT * sizeof(size_t));
+	memset(new_req.h_index->tails, 0xFF, HH__COUNT * sizeof(size_t));
+	memset(new_req.h_index->count, 0, HH__COUNT * sizeof(size_t));
+
 	return new_req;
 }
 
-void append_empty_header(
-		struct http_request *req,
-		struct slice header_name
-) {
+void append_empty_header(struct http_request *req, struct slice header_name) {
 	struct http_header new_header;
 
 	if (req->num_headers + 1 > req->cap_headers) {
@@ -72,10 +81,14 @@ void append_empty_header(
 	new_header.value.len = 0;
 	new_header.value.ptr = NULL;
 	new_header.type = HH_UNK;
+	new_header.next_same_type = SIZE_MAX;
 	req->headers[req->num_headers++] = new_header;
 }
 
-struct http_header *get_header_by_name(struct http_request *req, const char *name) {
+struct http_header *get_header_by_name(
+		struct http_request *req,
+		const char *name
+) {
 	size_t i;
 	size_t len;
 	const size_t target_len = strlen(name);
@@ -89,8 +102,10 @@ struct http_header *get_header_by_name(struct http_request *req, const char *nam
 	return NULL;
 }
 
-struct http_header *get_header(struct http_request *req,
-		enum http_header_type type) {
+struct http_header *get_header(
+		struct http_request *req,
+		enum http_header_type type
+) {
 	size_t i;
 	for (i = 0; i < req->num_headers; ++i) {
 		if (req->headers[i].type == type) {

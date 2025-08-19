@@ -632,6 +632,9 @@ static enum http_header_type parse_header_type(struct slice *name) {
 static enum parse_result parse_field_line_name(struct parse_ctx *ctx) {
 	char ch = ctx->buf[ctx->pos];
 	struct slice field_name;
+	enum http_header_type h_type;
+	struct field_index *h_index;
+	size_t new_h_index;
 	size_t i;
 
 	if (ch == SYM_CR) {
@@ -677,10 +680,28 @@ static enum parse_result parse_field_line_name(struct parse_ctx *ctx) {
 
 	ctx->pos++;
 	ctx->mark = MARK_NONE;
+
 	append_empty_header(ctx->req, field_name);
-	ctx->req->headers[ctx->req->num_headers - 1].type = parse_header_type(
-		&field_name
-	);
+	new_h_index = ctx->req->num_headers - 1;
+
+	h_type = parse_header_type(&field_name);
+	ctx->req->headers[new_h_index].type = h_type;
+
+	h_index = ctx->req->h_index;
+	if (h_type == HH_UNK) {
+		ctx->state = PS_FIELD_LINE_PRE_OWS;
+		return PR_COMPLETE;
+	}
+
+	h_index->count[h_type]++;
+	if (h_index->tails[h_type] == SIZE_MAX) {
+		h_index->heads[h_type] = new_h_index;
+		h_index->tails[h_type] = new_h_index;
+	} else {
+		size_t last_t_header = h_index->tails[h_type];
+		ctx->req->headers[last_t_header].next_same_type = new_h_index;
+		h_index->tails[h_type] = new_h_index;
+	}
 	ctx->state = PS_FIELD_LINE_PRE_OWS;
 	return PR_COMPLETE;
 }
