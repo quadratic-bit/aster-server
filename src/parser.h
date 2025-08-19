@@ -41,6 +41,8 @@ struct parse_ctx {
 	size_t pos;
 	size_t mark;
 
+	unsigned int code; /* 0 if okay (or 401), HTTP status code on error */
+
 	struct http_request *req;
 };
 

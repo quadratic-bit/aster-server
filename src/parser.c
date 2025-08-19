@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "parser.h"
+#include "response.h"
 #include "str.h"
 
 /* expect http_request to be zeroed out */
@@ -132,6 +133,9 @@ static enum parse_result parse_req_line_method(struct parse_ctx *ctx) {
 		if (!slice_str_cmp(&method, "OPTIONS"))
 			parsed_method = HM_OPTIONS;
 		break;
+	}
+	if (parsed_method == HM_UNK) {
+		ctx->code = RC_501_NOT_IMPLEMENTED;
 	}
 	ctx->req->method = parsed_method;
 	ctx->state = PS_REQ_LINE_TARGET;
@@ -392,6 +396,11 @@ static enum parse_result parse_req_line_target(struct parse_ctx *ctx) {
 		ctx->mark = MARK_NONE;
 		ctx->pos++;
 		parse_asterisk_form(ctx);
+
+		if (ctx->req->method != HM_OPTIONS) {
+			ctx->code = RC_400_BAD_REQUEST;
+		}
+
 		return PR_COMPLETE;
 
 	case TF_ORIGIN:
@@ -499,6 +508,13 @@ static enum parse_result parse_req_line_http_minor(struct parse_ctx *ctx) {
 		return PR_COMPLETE;
 	}
 	ctx->req->http_minor = to_digit(ch);
+
+	if (ctx->req->http_major > 1) {
+		ctx->state = PS_ERROR;
+		ctx->code = RC_505_HTTP_VERSION_NOT_SUPPORTED;
+		return PR_COMPLETE;
+	}
+
 	ctx->pos++;
 	ctx->state = PS_REQ_LINE_CRLF;
 	return PR_COMPLETE;
