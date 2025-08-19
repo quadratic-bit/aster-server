@@ -787,8 +787,7 @@ static void parse_framing(struct parse_ctx *ctx) {
 			ctx->state = PS_ERROR;
 			return;
 		}
-		if (te->value.len == 7 &&
-				!slice_str_cmp_ci(&te->value, "chunked")) {
+		if (!slice_str_cmp_ci_check(&te->value, "chunked")) {
 			ctx->req->te_chunked = 1;
 			ctx->req->content_length = -1;
 		} else {
@@ -816,11 +815,9 @@ static void parse_connection(struct parse_ctx *ctx) {
 	struct http_header *con = get_header(ctx->req, HH_CONNECTION);
 	ctx->req->keep_alive = 1;
 	if (con) {
-		if (con->value.len == 5 &&
-				!slice_str_cmp_ci(&con->value, "close")) {
+		if (!slice_str_cmp_ci_check(&con->value, "close")) {
 			ctx->req->keep_alive = 0;
-		} else if (con->value.len == 7 &&
-				!slice_str_cmp_ci(&con->value, "upgrade")) {
+		} else if (!slice_str_cmp_ci_check(&con->value, "upgrade")) {
 			/* TODO: parse_upgrade() */
 			ctx->req->upgrade = 1;
 		}

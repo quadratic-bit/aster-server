@@ -110,7 +110,10 @@ struct http_request {
 struct slice get_slice(const char *ptr, size_t len);
 
 int slice_str_cmp(const struct slice *sl, const char *str);
+int slice_str_cmp_check(const struct slice *sl, const char *str);
+
 int slice_str_cmp_ci(const struct slice *sl, const char *str);
+int slice_str_cmp_ci_check(const struct slice *sl, const char *str);
 
 void http_request_free(struct http_request *req);
 

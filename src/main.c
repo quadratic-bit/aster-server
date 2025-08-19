@@ -194,7 +194,7 @@ static void handle_client(int client_fd) {
 			assert(0);
 		}
 	} else {
-		if (req.path.len == 1 && !slice_str_cmp(&req.path, "/")) {
+		if (!slice_str_cmp_check(&req.path, "/")) {
 			append_to_response(&reply,
 				"HTTP/1.1 200 OK" CRLF
 				"Server: " SERVER CRLF

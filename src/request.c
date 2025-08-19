@@ -17,10 +17,26 @@ int slice_str_cmp(const struct slice *sl, const char *str) {
 	return memcmp(sl->ptr, str, sl->len);
 }
 
+int slice_str_cmp_check(const struct slice *sl, const char *str) {
+	if (sl->len != strlen(str)) return 1;
+	return memcmp(sl->ptr, str, sl->len);
+}
+
 int slice_str_cmp_ci(const struct slice *sl, const char *str) {
 	size_t pos = 0;
 
 	assert(sl->len == strlen(str));
+	for (; pos < sl->len; ++pos) {
+		int diff = lower(sl->ptr[pos]) - lower(str[pos]);
+		if (diff != 0) return diff;
+	}
+	return 0;
+}
+
+int slice_str_cmp_ci_check(const struct slice *sl, const char *str) {
+	size_t pos = 0;
+
+	if (sl->len != strlen(str)) return 1;
 	for (; pos < sl->len; ++pos) {
 		int diff = lower(sl->ptr[pos]) - lower(str[pos]);
 		if (diff != 0) return diff;
