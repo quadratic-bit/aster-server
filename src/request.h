@@ -135,3 +135,12 @@ void strip_postfix_ows(struct slice *header_value);
 
 /* return 1 if http versions match, 0 otherwise */
 int is_http_ver(struct http_request *req, uint8_t major, uint8_t minor);
+
+/* O(1) lookup */
+size_t headers_count(const struct http_request *req, enum http_header_type htype);
+
+/* returns SIZE_MAX if none */
+size_t headers_first(const struct http_request *req, enum http_header_type htype);
+
+/* SIZE_MAX if end */
+size_t headers_next(const struct http_request *req, size_t idx);

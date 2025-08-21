@@ -782,6 +782,12 @@ static void parse_host(struct parse_ctx *ctx) {
 		ctx->state = PS_ERROR;
 		return;
 	}
+
+	if (headers_count(ctx->req, HH_HOST) > 1) {
+		ctx->state = PS_ERROR;
+		return;
+	}
+
 	if (!ctx->req->host.ptr) {
 		ctx->req->host = host->value;
 	}
@@ -790,7 +796,7 @@ static void parse_host(struct parse_ctx *ctx) {
 static void parse_framing(struct parse_ctx *ctx) {
 	struct http_header *cl = get_header(ctx->req, HH_CONTENT_LENGTH);
 	struct http_header *te = get_header(ctx->req, HH_TRANSFER_ENCODING);
-	size_t i;
+	size_t i, h_idx;
 
 	if (te) {
 		if (cl) {
@@ -812,16 +818,36 @@ static void parse_framing(struct parse_ctx *ctx) {
 			return;
 		}
 	} else if (cl) {
-		for (i = 0; i < cl->value.len; ++i) {
-			if (is_digit(cl->value.ptr[i])) continue;
-			ctx->state = PS_ERROR;
-			return;
+		size_t cl_value = SIZE_MAX, cl_value_buf;
+		/* TODO: unsafe conversions */
+
+		for (h_idx = headers_first(ctx->req, HH_CONTENT_LENGTH);
+				h_idx != SIZE_MAX;
+				h_idx = headers_next(ctx->req, h_idx)) {
+			cl = &ctx->req->headers[h_idx];
+			for (i = 0; i < cl->value.len; ++i) {
+				if (is_digit(cl->value.ptr[i])) continue;
+				ctx->state = PS_ERROR;
+				return;
+			}
+			if (cl_value == SIZE_MAX) {
+				cl_value = parse_size_t(
+					cl->value.ptr,
+					cl->value.len
+				);
+				ctx->req->content_length = (ssize_t)cl_value;
+			} else {
+				cl_value_buf = parse_size_t(
+					cl->value.ptr,
+					cl->value.len
+				);
+				if (cl_value != cl_value_buf) {
+					/* RFC 9110 section 8.6, duplicate CL */
+					ctx->state = PS_ERROR;
+					return;
+				}
+			}
 		}
-		/* TODO: unsafe conversion */
-		ctx->req->content_length = (ssize_t)parse_size_t(
-			cl->value.ptr,
-			cl->value.len
-		);
 	} else {
 		ctx->req->content_length = 0;
 	}

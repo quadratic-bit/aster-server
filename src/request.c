@@ -141,3 +141,16 @@ void strip_postfix_ows(struct slice *header_value) {
 int is_http_ver(struct http_request *req, uint8_t major, uint8_t minor) {
 	return req->http_major == major && req->http_minor == minor;
 }
+
+/* TODO: handle comma-separated headers */
+size_t headers_count(const struct http_request *req, enum http_header_type htype) {
+	return req->h_index->count[htype];
+}
+
+size_t headers_first(const struct http_request *req, enum http_header_type htype) {
+	return req->h_index->heads[htype];
+}
+
+size_t headers_next(const struct http_request *req, size_t idx) {
+	return req->headers[idx].next_same_type;
+}
