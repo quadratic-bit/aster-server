@@ -740,10 +740,6 @@ static enum parse_result parse_field_line_value(struct parse_ctx *ctx) {
 	struct slice h_value;
 
 	if (ctx->mark == MARK_NONE) {
-		if (ch == SYM_CR) { /* empty header value */
-			ctx->state = PS_ERROR;
-			return PR_COMPLETE;
-		}
 		ctx->mark = ctx->pos;
 	}
 
