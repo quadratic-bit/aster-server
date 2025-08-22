@@ -154,6 +154,16 @@ size_t headers_next(const struct http_request *req, size_t idx) {
 	return req->headers[idx].next_same_type;
 }
 
+static void trim_ows(struct slice *sl) {
+	while (sl->len > 0 && (*sl->ptr == SYM_HTAB || *sl->ptr == SYM_SP)) {
+		sl->ptr++;
+		sl->len--;
+	}
+	while (sl->len > 0 && (sl->ptr[sl->len - 1] == SYM_HTAB || sl->ptr[sl->len - 1] == SYM_SP)) {
+		sl->len--;
+	}
+}
+
 struct header_item_iter header_items_init(
 		const struct http_request *req,
 		enum http_header_type htype
@@ -164,7 +174,8 @@ struct header_item_iter header_items_init(
 	return it;
 }
 
-/* TODO: RFC 9110 section 5.6.1.2 reject all zero-length values */
+/* TODO: RFC 9110 section 5.6.1.2 reject all zero-length values
+  or emit zero-length values, delegating it to the caller */
 int header_items_next(
 		const struct http_request *req,
 		struct header_item_iter *it
@@ -172,6 +183,11 @@ int header_items_next(
 	size_t pos;
 	struct slice hval = req->headers[it->header_index].value;
 	int is_quoting = 0;
+
+	if (it->header_index == SIZE_MAX) {
+		it->header_item.ptr = NULL;
+		return 0;
+	}
 
 	if (it->header_item.ptr == NULL) {
 		pos = 0;
@@ -194,8 +210,6 @@ int header_items_next(
 		pos = it->offset;
 	}
 
-	assert(pos < hval.len);
-
 	while (pos < hval.len) {
 		char ch = hval.ptr[pos];
 		if (ch == '\"') {
@@ -214,9 +228,10 @@ int header_items_next(
 			while (++off < hval.len && (hval.ptr[off] == SYM_HTAB || hval.ptr[off] == SYM_SP));
 			if (pos == it->offset) return -1;
 
-			it->header_item.ptr = hval.ptr + it->offset;
 			it->header_item.len = pos + 1 - it->offset;
+			it->header_item.ptr = hval.ptr + it->offset;
 			it->offset = off;
+			trim_ows(&it->header_item);
 			return 0;
 		}
 		if (ch == '\\' && is_quoting) {
@@ -244,6 +259,7 @@ int header_items_next(
 	it->header_item.ptr = hval.ptr + it->offset;
 	it->header_item.len = pos - it->offset;
 	it->offset = pos;
+	trim_ows(&it->header_item);
 
 	return 0;
 }
