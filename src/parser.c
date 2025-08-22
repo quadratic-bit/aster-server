@@ -831,6 +831,10 @@ static void parse_framing(struct parse_ctx *ctx) {
 				it.header_item.ptr != NULL && !it_ret;
 				it_ret = header_items_next(ctx->req, &it)) {
 			cl_slice = it.header_item;
+			if (cl_slice.len == 0) {
+				ctx->state = PS_ERROR;
+				return;
+			}
 			for (i = 0; i < cl_slice.len; ++i) {
 				if (is_digit(cl_slice.ptr[i])) continue;
 				ctx->state = PS_ERROR;

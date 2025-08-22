@@ -149,6 +149,7 @@ struct header_item_iter {
 	size_t header_index;
 	struct slice header_item;
 	size_t offset;
+	int last_comma;
 };
 
 /* -1 if malformed field */

@@ -174,8 +174,6 @@ struct header_item_iter header_items_init(
 	return it;
 }
 
-/* TODO: RFC 9110 section 5.6.1.2 reject all zero-length values
-  or emit zero-length values, delegating it to the caller */
 int header_items_next(
 		const struct http_request *req,
 		struct header_item_iter *it
@@ -195,6 +193,11 @@ int header_items_next(
 		it->header_item.ptr = hval.ptr;
 	} else if (it->offset >= hval.len) {
 		size_t next = req->headers[it->header_index].next_same_type;
+		if (it->last_comma) {
+			it->header_item.len = 0;
+			it->last_comma = 0;
+			return 0;
+		}
 		if (next == SIZE_MAX) {
 			it->header_item.ptr = NULL;
 			return 0;
@@ -219,18 +222,16 @@ int header_items_next(
 		}
 		if (ch == ',' && !is_quoting) {
 			size_t off = pos;
-			if (pos == it->offset) {
+			if (pos > it->offset) {
+				while (--pos >= it->offset && (hval.ptr[pos] == SYM_HTAB || hval.ptr[pos] == SYM_SP));
 				pos++;
-				it->offset++;
-				continue;
 			}
-			while (--pos >= it->offset && (hval.ptr[pos] == SYM_HTAB || hval.ptr[pos] == SYM_SP));
 			while (++off < hval.len && (hval.ptr[off] == SYM_HTAB || hval.ptr[off] == SYM_SP));
-			if (pos == it->offset) return -1;
 
-			it->header_item.len = pos + 1 - it->offset;
+			it->header_item.len = pos - it->offset;
 			it->header_item.ptr = hval.ptr + it->offset;
 			it->offset = off;
+			if (off >= hval.len) it->last_comma = 1;
 			trim_ows(&it->header_item);
 			return 0;
 		}
