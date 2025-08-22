@@ -777,6 +777,7 @@ static enum parse_result parse_field_line_value(struct parse_ctx *ctx) {
 }
 
 static void parse_host(struct parse_ctx *ctx) {
+	/* TODO: validate host */
 	struct http_header *host = get_header(ctx->req, HH_HOST);
 	if (!host) {
 		ctx->state = PS_ERROR;
@@ -796,7 +797,8 @@ static void parse_host(struct parse_ctx *ctx) {
 static void parse_framing(struct parse_ctx *ctx) {
 	struct http_header *cl = get_header(ctx->req, HH_CONTENT_LENGTH);
 	struct http_header *te = get_header(ctx->req, HH_TRANSFER_ENCODING);
-	size_t i, h_idx;
+	size_t i;
+	int it_ret;
 
 	if (te) {
 		if (cl) {
@@ -819,27 +821,31 @@ static void parse_framing(struct parse_ctx *ctx) {
 		}
 	} else if (cl) {
 		size_t cl_value = SIZE_MAX, cl_value_buf;
-		/* TODO: unsafe conversions */
+		struct slice cl_slice;
 
-		for (h_idx = headers_first(ctx->req, HH_CONTENT_LENGTH);
-				h_idx != SIZE_MAX;
-				h_idx = headers_next(ctx->req, h_idx)) {
-			cl = &ctx->req->headers[h_idx];
-			for (i = 0; i < cl->value.len; ++i) {
-				if (is_digit(cl->value.ptr[i])) continue;
+		struct header_item_iter it = header_items_init(ctx->req, HH_CONTENT_LENGTH);
+
+		/* FIX: unsafe conversions */
+
+		for (it_ret = header_items_next(ctx->req, &it);
+				it.header_item.ptr != NULL && !it_ret;
+				it_ret = header_items_next(ctx->req, &it)) {
+			cl_slice = it.header_item;
+			for (i = 0; i < cl_slice.len; ++i) {
+				if (is_digit(cl_slice.ptr[i])) continue;
 				ctx->state = PS_ERROR;
 				return;
 			}
 			if (cl_value == SIZE_MAX) {
 				cl_value = parse_size_t(
-					cl->value.ptr,
-					cl->value.len
+					cl_slice.ptr,
+					cl_slice.len
 				);
 				ctx->req->content_length = (ssize_t)cl_value;
 			} else {
 				cl_value_buf = parse_size_t(
-					cl->value.ptr,
-					cl->value.len
+					cl_slice.ptr,
+					cl_slice.len
 				);
 				if (cl_value != cl_value_buf) {
 					/* RFC 9110 section 8.6, duplicate CL */
@@ -847,6 +853,10 @@ static void parse_framing(struct parse_ctx *ctx) {
 					return;
 				}
 			}
+		}
+		if (it_ret == -1) {
+			ctx->state = PS_ERROR;
+			return;
 		}
 	} else {
 		ctx->req->content_length = 0;

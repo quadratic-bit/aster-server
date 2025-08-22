@@ -66,3 +66,8 @@ int is_regchar(char ch) {
 	}
 	return ch == '_' || ch == '~' || ch == '!' || ch == ';' || ch == '=';
 }
+
+int is_qdtext(char ch) {
+	if (!is_vchar(ch) && !is_obs_text(ch) && ch != SYM_SP && ch != SYM_HTAB) return 0;
+	return ch != '\"' && ch != '\\';
+}

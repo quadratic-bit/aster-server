@@ -144,3 +144,15 @@ size_t headers_first(const struct http_request *req, enum http_header_type htype
 
 /* SIZE_MAX if end */
 size_t headers_next(const struct http_request *req, size_t idx);
+
+struct header_item_iter {
+	size_t header_index;
+	struct slice header_item;
+	size_t offset;
+};
+
+/* -1 if malformed field */
+struct header_item_iter header_items_init(const struct http_request *req, enum http_header_type htype);
+
+/* -1 if malformed field */
+int header_items_next(const struct http_request *req, struct header_item_iter *it);

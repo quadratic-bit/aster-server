@@ -142,7 +142,6 @@ int is_http_ver(struct http_request *req, uint8_t major, uint8_t minor) {
 	return req->http_major == major && req->http_minor == minor;
 }
 
-/* TODO: handle comma-separated headers */
 size_t headers_count(const struct http_request *req, enum http_header_type htype) {
 	return req->h_index->count[htype];
 }
@@ -153,4 +152,98 @@ size_t headers_first(const struct http_request *req, enum http_header_type htype
 
 size_t headers_next(const struct http_request *req, size_t idx) {
 	return req->headers[idx].next_same_type;
+}
+
+struct header_item_iter header_items_init(
+		const struct http_request *req,
+		enum http_header_type htype
+) {
+	struct header_item_iter it = {0};
+	it.header_index = req->h_index->heads[htype];
+	it.offset = 0;
+	return it;
+}
+
+/* TODO: RFC 9110 section 5.6.1.2 reject all zero-length values */
+int header_items_next(
+		const struct http_request *req,
+		struct header_item_iter *it
+) {
+	size_t pos;
+	struct slice hval = req->headers[it->header_index].value;
+	int is_quoting = 0;
+
+	if (it->header_item.ptr == NULL) {
+		pos = 0;
+		it->offset = 0;
+		it->header_item.ptr = hval.ptr;
+	} else if (it->offset >= hval.len) {
+		size_t next = req->headers[it->header_index].next_same_type;
+		if (next == SIZE_MAX) {
+			it->header_item.ptr = NULL;
+			return 0;
+		}
+
+		it->header_index = next;
+		it->offset = 0;
+
+		pos = 0;
+		hval = req->headers[next].value;
+		it->header_item.ptr = hval.ptr;
+	} else {
+		pos = it->offset;
+	}
+
+	assert(pos < hval.len);
+
+	while (pos < hval.len) {
+		char ch = hval.ptr[pos];
+		if (ch == '\"') {
+			is_quoting ^= 1;
+			pos++;
+			continue;
+		}
+		if (ch == ',' && !is_quoting) {
+			size_t off = pos;
+			if (pos == it->offset) {
+				pos++;
+				it->offset++;
+				continue;
+			}
+			while (--pos >= it->offset && (hval.ptr[pos] == SYM_HTAB || hval.ptr[pos] == SYM_SP));
+			while (++off < hval.len && (hval.ptr[off] == SYM_HTAB || hval.ptr[off] == SYM_SP));
+			if (pos == it->offset) return -1;
+
+			it->header_item.ptr = hval.ptr + it->offset;
+			it->header_item.len = pos + 1 - it->offset;
+			it->offset = off;
+			return 0;
+		}
+		if (ch == '\\' && is_quoting) {
+			pos++;
+			if (pos >= hval.len) return -1;
+			ch = hval.ptr[pos];
+			if (ch == SYM_HTAB || ch == SYM_SP || is_vchar(ch) || is_obs_text(ch)) {
+				pos++;
+				continue;
+			} else {
+				return -1;
+			}
+		}
+		if (!is_qdtext(ch)) return -1;
+		pos++;
+	}
+
+	if (is_quoting) return -1;
+
+	if (pos == it->offset) {
+		it->header_item.ptr = NULL;
+		return 0;
+	}
+
+	it->header_item.ptr = hval.ptr + it->offset;
+	it->header_item.len = pos - it->offset;
+	it->offset = pos;
+
+	return 0;
 }

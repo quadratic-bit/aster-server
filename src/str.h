@@ -1,5 +1,11 @@
 #include <stdint.h>
 
+#define SYM_SP ' '
+#define SYM_HTAB '\t'
+#define SYM_CR '\r'
+#define SYM_LF '\n'
+#define CRLF "\r\n"
+
 /* return 1 if vchar, 0 otherwise */
 int is_vchar(char ch);
 
@@ -29,3 +35,6 @@ char lower(char ch);
 
 /* parse DIGIT into uint8_t */
 uint8_t to_digit(char ch);
+
+/* return 1 if qdtext, 0 otherwise */
+int is_qdtext(char ch);

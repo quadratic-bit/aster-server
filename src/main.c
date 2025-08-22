@@ -16,6 +16,7 @@
 #include "parser.h"
 #include "response.h"
 #include "datetime.h"
+#include "str.h"
 
 #define MAXDATASIZE 1024
 #define SERVER "aster/0.0.0-alpha"
