@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "test.h"
 #include "request.h"
 
@@ -79,4 +80,39 @@ void assert_target_absolute(
 	ASSERT_EQ_SLICE(req->path, path);
 	ASSERT_EQ_SLICE(req->query, query);
 	ASSERT_EQ_INT(req->port, port);
+}
+
+void assert_list_eq(
+		const struct http_request *req,
+		enum http_header_type type,
+		const char *items[],
+		size_t n_items
+) {
+	struct header_item_iter it = header_items_init(req, type);
+	struct slice value_slice;
+	int it_ret;
+	size_t counter;
+
+	for (it_ret = header_items_next(req, &it), counter = 0;
+			it.header_item.ptr != NULL && !it_ret && counter < n_items;
+			it_ret = header_items_next(req, &it), counter++) {
+		ASSERT_EQ_SLICE(it.header_item, items[counter]);
+	}
+	if (counter < n_items) {
+		fprintf(stderr,
+			"assert_list_eq failed (expected %ld values, got %ld)\n",
+			n_items,
+			counter);
+		exit(1);
+	}
+	if (it.header_item.ptr != NULL) {
+		fprintf(stderr,
+			"assert_list_eq failed (expected %ld values, got more)\n",
+			n_items);
+		exit(1);
+	}
+	if (it_ret == -1) {
+		fprintf(stderr, "assert_list_eq failed (malformed syntax)\n");
+		exit(1);
+	}
 }

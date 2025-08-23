@@ -89,6 +89,7 @@ static void test_firefox_get(void) {
 
 	struct http_request req;
 	struct parse_ctx ctx;
+	const char *accept_encodings[] = {"gzip", "deflate", "br", "zstd"};
 
 	ASSERT_TRUE(parse_ok(raw_req, &req, &ctx) == 0);
 
@@ -97,6 +98,7 @@ static void test_firefox_get(void) {
 
 	ASSERT_EQ_HEADER(&req, HH_HOST, "127.0.0.1");
 	ASSERT_EQ_HEADER(&req, HH_CONNECTION, "keep-alive");
+	assert_list_eq(&req, HH_ACCEPT_ENCODING, accept_encodings, 4);
 
 	END_TEST(ctx, req);
 }

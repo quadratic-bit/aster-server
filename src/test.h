@@ -161,4 +161,11 @@ void assert_target_absolute(
 		const char *query
 );
 
+void assert_list_eq(
+		const struct http_request *req,
+		enum http_header_type type,
+		const char *items[],
+		size_t n_items
+);
+
 #endif
