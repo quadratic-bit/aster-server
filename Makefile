@@ -34,7 +34,7 @@ bin:
 
 test: bin/test
 
-bin/test: src/test.h src/test_parser.c src/parser.* src/request.* src/str.* src/response.* src/datetime.*
+bin/test: src/test_parser.c src/test.* src/parser.* src/request.* src/str.* src/response.* src/datetime.*
 	$(CC) -std=c89 -pedantic-errors $^ -o $@
 	./$@
 	rm -f ./$@

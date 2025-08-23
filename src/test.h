@@ -4,17 +4,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include "parser.h"
 
 #define CRLF "\r\n"
 #define RL11(method, target) method " " target " " "HTTP/1.1" CRLF
 #define H(key, value) key ": " value CRLF
 #define HOST(value) H("Host", value)
 #define END CRLF
-
-#define SETUP_TEST(raw_req, req, ctx, res) \
-	struct http_request req = new_request(); \
-	struct parse_ctx ctx = parse_ctx_init(&req); \
-	enum parse_result res = feed(&ctx, raw_req, strlen(raw_req)); \
 
 #define END_TEST(ctx, req) \
 	parse_ctx_free(&ctx); \
@@ -27,42 +23,14 @@
 		fprintf(stderr, "OK\n"); \
 	} while (0)
 
-#define ASSERT_DONE(ctx, res) do { \
-	if ((res) != (PR_COMPLETE)) { \
+#define ASSERT_TRUE(value) do { \
+	if (!(value)) { \
 		fprintf(stderr, \
-			"%s:%d: ASSERT_DONE(%s) parsing didn't finish\n", \
+			"%s:%d: ASSERT_TRUE(%s) got (int)(%d)\n", \
 			__FILE__, \
 			__LINE__, \
-			#res); \
-		exit(1); \
-	} \
-	if ((ctx.state) != (PS_DONE)) { \
-		fprintf(stderr, \
-			"%s:%d: ASSERT_DONE(%s) parsing didn't succeed, got %d\n", \
-			__FILE__, \
-			__LINE__, \
-			#res, \
-			(int)(ctx.state)); \
-		exit(1); \
-	} \
-} while (0)
-
-#define ASSERT_ERROR(res) do { \
-	if ((res) != (PR_COMPLETE)) { \
-		fprintf(stderr, \
-			"%s:%d: ASSERT_ERROR(%s) parsing didn't finish\n", \
-			__FILE__, \
-			__LINE__, \
-			#res); \
-		exit(1); \
-	} \
-	if ((ctx.state) != (PS_ERROR)) { \
-		fprintf(stderr, \
-			"%s:%d: ASSERT_ERROR(%s) parsing didn't error, got %d\n", \
-			__FILE__, \
-			__LINE__, \
-			#res, \
-			(int)(ctx.state)); \
+			#value, \
+			(int)(value)); \
 		exit(1); \
 	} \
 } while (0)
@@ -163,5 +131,34 @@
 		exit(1); \
 	} \
 } while (0)
+
+int parse_ok(const char *raw, struct http_request *req, struct parse_ctx *ctx);
+int parse_err(const char *raw, struct http_request *req, struct parse_ctx *ctx);
+
+void assert_req_line(
+		const struct http_request *req,
+		enum http_method hm,
+		int http_major_ver,
+		int http_minor_ver,
+		int keepalive
+);
+
+void assert_target_origin(
+		const struct http_request *req,
+		const char *raw,
+		const char *path,
+		const char *query
+);
+void assert_target_asterisk(const struct http_request *req);
+void assert_target_absolute(
+		const struct http_request *req,
+		const char *raw,
+		const char *scheme,
+		const char *host,
+		int port,
+		const char *authority,
+		const char *path,
+		const char *query
+);
 
 #endif
