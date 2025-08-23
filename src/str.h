@@ -1,3 +1,6 @@
+#ifndef HTTP_STR_H
+#define HTTP_STR_H
+
 #include <stdint.h>
 
 #define SYM_SP ' '
@@ -38,3 +41,5 @@ uint8_t to_digit(char ch);
 
 /* return 1 if qdtext, 0 otherwise */
 int is_qdtext(char ch);
+
+#endif

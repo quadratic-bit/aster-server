@@ -1,3 +1,6 @@
+#ifndef REQUEST_H
+#define REQUEST_H
+
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -157,3 +160,5 @@ struct header_item_iter header_items_init(const struct http_request *req, enum h
 
 /* -1 if malformed field */
 int header_items_next(const struct http_request *req, struct header_item_iter *it);
+
+#endif

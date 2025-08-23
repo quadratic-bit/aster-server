@@ -1,3 +1,6 @@
+#ifndef RESPONSE_H
+#define RESPONSE_H
+
 #include <stddef.h>
 
 enum http_response_code {
@@ -60,3 +63,5 @@ struct http_response {
 struct http_response new_response(void);
 void append_to_response(struct http_response *resp, const char *str);
 void http_response_free(struct http_response *resp);
+
+#endif

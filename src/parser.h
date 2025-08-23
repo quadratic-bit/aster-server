@@ -1,3 +1,6 @@
+#ifndef PARSER_H
+#define PARSER_H
+
 #include "request.h"
 #include <stdint.h>
 
@@ -45,3 +48,5 @@ struct parse_ctx parse_ctx_init(struct http_request *req);
 void parse_ctx_free(struct parse_ctx *ctx);
 
 enum parse_result feed(struct parse_ctx *ctx, const char *req_bytes, size_t n);
+
+#endif
