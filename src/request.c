@@ -74,6 +74,8 @@ struct http_request new_request(void) {
 	memset(new_req.h_index->tails, 0xFF, HH__COUNT * sizeof(size_t));
 	memset(new_req.h_index->count, 0, HH__COUNT * sizeof(size_t));
 
+	new_req.keep_alive = 1;
+
 	return new_req;
 }
 
