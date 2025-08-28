@@ -89,7 +89,6 @@ void assert_list_eq(
 		size_t n_items
 ) {
 	struct header_item_iter it = header_items_init(req, type);
-	struct slice value_slice;
 	int it_ret;
 	size_t counter;
 

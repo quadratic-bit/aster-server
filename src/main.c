@@ -13,10 +13,10 @@
 #include <sys/wait.h>
 #include <netdb.h>
 #include <assert.h>
-#include "parser.h"
-#include "response.h"
-#include "datetime.h"
-#include "str.h"
+#include "aster/parser.h"
+#include "aster/response.h"
+#include "aster/datetime.h"
+#include "aster/str.h"
 
 #define MAXDATASIZE 1024
 #define SERVER "aster/0.0.0-alpha"
