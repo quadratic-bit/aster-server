@@ -55,9 +55,9 @@ static void zombie_killer(int s) {
    cast to either sockaddr_in* or sockaddr_in6* */
 static void *get_sockaddr_in(struct sockaddr *sa) {
 	if (sa->sa_family == AF_INET) {
-		return &(((struct sockaddr_in *)sa)->sin_addr);
+		return &(((struct sockaddr_in *)((void *)sa))->sin_addr);
 	}
-	return &(((struct sockaddr_in6 *)sa)->sin6_addr);
+	return &(((struct sockaddr_in6 *)((void *)sa))->sin6_addr);
 }
 
 /* bind the socket to the first available bindable address, returns the fd of
